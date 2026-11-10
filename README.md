@@ -10,7 +10,7 @@ The running site is [https://foundit-six-iota.vercel.app](https://foundit-six-io
 
 A visitor can browse found items without an account. Public listings show category, colour, a generic description, desk, and age. Valuable items show that generic description only. The public listing hides the name on a WatCard, the contents of a wallet, and any photo of a valuable item.
 
-Visitors can filter by category, building, and age, and open a campus map of staffed desks.
+Visitors can filter by category, building, and age, and open an OpenStreetMap of campus with a pin on each building.
 
 ### 1.2 Students
 
