@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --color-slate-50: #f6f1e8;
+  --color-slate-100: #efe6d8;
+  --color-slate-200: #e4d7c4;
+  --color-slate-900: #2c261f;
+  --color-slate-950: #1c1814;
+  --color-amber-300: #e2c48a;
+  --color-amber-400: #c6a15a;
+  --color-amber-500: #b48b3e;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: #f6f1e8;
+  color: #2c261f;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.28s ease;
+}

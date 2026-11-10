@@ -1,0 +1,7 @@
+{
+  "name": "FoundIt - UW Campus Lost & Found",
+  "description": "A campus lost and found platform for University of Waterloo students and staff with smart matching, claims management, and desk inventory.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
