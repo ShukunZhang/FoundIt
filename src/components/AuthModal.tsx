@@ -17,7 +17,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   audience = 'student',
   choosingNewPassword = false,
 }) => {
-  const { signIn, signUp, signOut, requestPasswordReset, updatePassword, refreshProfile } = useAuth();
+  const { signIn, signUp, signOut, acceptSession, requestPasswordReset, updatePassword, refreshProfile } = useAuth();
   const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'forgot'>('sign-up');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -71,6 +71,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (mode === 'sign-in') {
         const signedInProfile = await signIn(email, password);
         await expectAudience(signedInProfile.role);
+        acceptSession(signedInProfile);
         onClose();
       } else {
         if (forStaff && !staffCode.trim()) throw new Error('Enter the staff desk code.');
@@ -86,6 +87,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         } else {
           const signedInProfile = await refreshProfile();
           await expectAudience(signedInProfile.role);
+          acceptSession(signedInProfile);
           onClose();
         }
       }
