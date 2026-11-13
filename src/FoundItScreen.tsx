@@ -190,11 +190,7 @@ export function FoundItScreen() {
           }
         }}
         onGoHome={() => {
-          if (role === 'staff' && isStaff) setStaffTab('dashboard');
-          else {
-            setRole('student');
-            setStudentTab('explore');
-          }
+          if (role === 'student') setStudentTab('explore');
         }}
         unreadCount={notifications.filter((note) => !note.read).length}
         onOpenInbox={() => { setRole('student'); setStudentTab('inbox'); }}
