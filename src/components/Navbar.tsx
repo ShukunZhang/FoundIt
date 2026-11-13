@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Bell, Map, Tag, FileCheck, LogOut, LogIn, ChevronDown, Sparkles } from 'lucide-react';
+import { Shield, Bell, Tag, FileCheck, LogOut, LogIn, ChevronDown, Menu, X, Sparkles } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface NavbarProps {
@@ -42,6 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenGuide,
 }) => {
   const [showUserMenu, setShowUserMenu] = React.useState(false);
+  const [mobileMenu, setMobileMenu] = React.useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 transition-colors">
@@ -73,27 +74,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-2.5">
             {/* Student Notifications (Inbox) */}
             {currentView === 'student' && onOpenGuide && (
-              <button type="button" onClick={onOpenGuide} className="px-2 py-1 text-[11px] font-bold rounded-lg text-slate-700 hover:bg-slate-100">
+              <button type="button" onClick={onOpenGuide} className="hidden sm:inline px-2 py-1 text-[11px] font-bold rounded-lg text-slate-700 hover:bg-slate-100">
                 Guide
               </button>
             )}
             {currentView === 'student' && !user.isSignedIn && onOpenStaffSignIn && (
-              <button type="button" onClick={onOpenStaffSignIn} className="px-2 py-1 text-[11px] font-bold rounded-lg text-slate-600 hover:bg-slate-100">
+              <button type="button" onClick={onOpenStaffSignIn} className="hidden sm:inline px-2 py-1 text-[11px] font-bold rounded-lg text-slate-600 hover:bg-slate-100">
                 Staff sign in
               </button>
             )}
-            {currentView === 'student' && (
-              <button
-                data-tour="map"
-                onClick={onOpenMap}
-                className="relative p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
-                title="Campus map"
-                aria-label="Campus map"
-              >
-                <Map className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-            )}
-
             {currentView === 'student' && (
               <button
                 data-tour="inbox"
@@ -111,8 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Fake UW Sign-In / User Profile Button */}
-            <div className="relative">
+            <div className={`relative ${currentView === 'staff' ? '' : 'hidden sm:block'}`}>
               {user.isSignedIn && currentView === 'staff' ? (
                 <button
                   type="button"
@@ -142,8 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors shadow-xs"
                 >
                   <LogIn className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">Sign in with WatIAM</span>
-                  <span className="sm:hidden">Sign in</span>
+                  <span>Sign in with WatIAM</span>
                 </button>
               )}
 
@@ -261,9 +248,63 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </>
               )}
             </div>
+
+            {currentView === 'student' && (
+              <button
+                type="button"
+                className="sm:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100"
+                aria-label="Open menu"
+                onClick={() => setMobileMenu(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
+      {mobileMenu && (
+        <div className="sm:hidden border-t border-slate-200 bg-white px-3 py-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-900">Menu</p>
+            <button type="button" aria-label="Close menu" onClick={() => setMobileMenu(false)} className="p-1">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <button type="button" onClick={() => { onOpenMap(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100">Campus map</button>
+          {onOpenGuide && (
+            <button type="button" onClick={() => { onOpenGuide(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100">Guide</button>
+          )}
+          {user.isSignedIn ? (
+            <div className="space-y-1">
+              <button type="button" onClick={() => { onOpenReports(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5"><FileCheck className="w-3.5 h-3.5" /> My lost reports</button>
+              <button type="button" onClick={() => { onOpenMatches(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Matches</span>
+                {pendingMatchCount > 0 && <span className="text-[10px] bg-amber-200 px-1.5 py-0.5 rounded text-slate-800">{pendingMatchCount} new</span>}
+              </button>
+              <button type="button" onClick={() => { onOpenTags(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" /> Return tags</button>
+              <button type="button" onClick={() => { onOpenMyClaims(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100">My claims & codes</button>
+              <button type="button" onClick={() => { onOpenInbox(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><Bell className="w-3.5 h-3.5" /> Notifications</span>
+                {unreadCount > 0 && <span className="text-[10px] bg-amber-200 px-1.5 py-0.5 rounded text-slate-800">{unreadCount} new</span>}
+              </button>
+              <button type="button" onClick={() => { onToggleSignIn(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1.5"><LogOut className="w-3.5 h-3.5" /> Sign out</button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <button type="button" onClick={() => { onToggleSignIn(); setMobileMenu(false); }} className="w-full py-2.5 rounded-xl bg-slate-950 text-white text-xs font-bold flex items-center justify-center gap-1.5">
+                <LogIn className="w-3.5 h-3.5 text-amber-400" />
+                Sign in with WatIAM
+              </button>
+              {onOpenStaffSignIn && (
+                <button type="button" onClick={() => { onOpenStaffSignIn(); setMobileMenu(false); }} className="w-full py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 flex items-center justify-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-amber-500" />
+                  Staff sign in
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 };

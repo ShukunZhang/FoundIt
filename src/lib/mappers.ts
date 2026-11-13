@@ -55,18 +55,18 @@ interface ItemRow {
   colour: string;
   brand?: string | null;
   public_description?: string;
-  distinctive_features: string | null;
+  distinctive_features?: string | null;
   desk_id: string;
   logged_at: string;
   status: ItemStatus;
   valuable: boolean;
-  storage_spot: string | null;
-  location_found: string | null;
-  drop_off_code: string | null;
-  image_path: string | null;
-  image_bucket: 'public-photos' | 'private-photos' | null;
-  finder_id: string | null;
-  desks?: { name: string } | null;
+  storage_spot?: string | null;
+  location_found?: string | null;
+  drop_off_code?: string | null;
+  image_path?: string | null;
+  image_bucket?: 'public-photos' | 'private-photos' | null;
+  finder_id?: string | null;
+  desks?: { name: string } | { name: string }[] | null;
 }
 
 interface SecretRow {
@@ -151,16 +151,16 @@ export function mapItem(row: ItemRow, secret?: SecretRow): FoundItem {
     publicDescription: row.public_description ?? '',
     detailedDescription: secret?.detailed_description ?? undefined,
     distinctiveFeatures: row.distinctive_features ?? undefined,
-    desk: row.desks?.name ?? row.desk_id,
+    desk: (Array.isArray(row.desks) ? row.desks[0]?.name : row.desks?.name) ?? row.desk_id,
     deskId: row.desk_id,
     dateLogged: row.logged_at.slice(0, 10),
     daysAgo: daysSince(row.logged_at),
     status: row.status,
     valuable: row.valuable,
     storageSpot: row.storage_spot ?? undefined,
-    imageUrl: publicPhotoUrl(row.image_bucket, row.image_path, row.valuable),
+    imageUrl: publicPhotoUrl(row.image_bucket ?? null, row.image_path ?? null, row.valuable),
     imagePath: row.image_path ?? undefined,
-    imageBucket: row.image_bucket,
+    imageBucket: row.image_bucket ?? null,
     watcardName: secret?.watcard_name ?? undefined,
     locationFound: row.location_found ?? undefined,
     dropOffCode: row.drop_off_code ?? undefined,

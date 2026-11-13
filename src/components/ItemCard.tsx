@@ -11,9 +11,24 @@ interface ItemCardProps {
 
 export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick }) => {
   const isValuable = item.valuable;
-  const isReserved = item.status === 'reserved';
+  const heldByViewer = Boolean(item.claim);
+  const reservedByOther = item.status === 'reserved' && !heldByViewer;
   const isInTransit = item.status === 'in-transit';
   const isUnderReview = item.status === 'under-review';
+  const statusLabel = reservedByOther
+    ? 'Reserved by another student'
+    : heldByViewer && item.status === 'reserved'
+      ? 'On hold for you'
+      : isInTransit
+        ? `In transit to ${item.desk.split(' ')[0]}`
+        : isUnderReview
+          ? 'Under review'
+          : null;
+  const actionLabel = reservedByOther
+    ? 'Contest claim'
+    : heldByViewer && item.status === 'reserved'
+      ? 'View claim'
+      : 'View & Claim';
 
   return (
     <div
@@ -30,21 +45,19 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick }) => {
         />
 
         {/* Status badges */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start">
-          {isInTransit ? (
-            <span className="bg-amber-400 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded shadow-xs">
-              In transit to {item.desk.split(' ')[0]}
+        {statusLabel && (
+          <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start">
+            <span className={`font-semibold text-[10px] px-2 py-0.5 rounded shadow-xs ${
+              reservedByOther || isInTransit
+                ? 'bg-amber-400 text-slate-950 font-bold'
+                : isUnderReview
+                  ? 'bg-sky-100 border border-sky-300 text-sky-900'
+                  : 'bg-amber-100 border border-amber-300 text-amber-900'
+            }`}>
+              {statusLabel}
             </span>
-          ) : isReserved ? (
-            <span className="bg-amber-100 border border-amber-300 text-amber-900 font-semibold text-[10px] px-2 py-0.5 rounded shadow-xs">
-              On Hold
-            </span>
-          ) : isUnderReview ? (
-            <span className="bg-sky-100 border border-sky-300 text-sky-900 font-semibold text-[10px] px-2 py-0.5 rounded shadow-xs">
-              Under Review
-            </span>
-          ) : null}
-        </div>
+          </div>
+        )}
 
         {/* Age Indicator */}
         <div className="absolute bottom-2.5 right-2.5 bg-white/90 backdrop-blur-xs text-slate-700 font-mono text-[10px] px-1.5 py-0.5 rounded border border-slate-200/60 flex items-center gap-1 shadow-2xs">
@@ -84,12 +97,9 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick }) => {
         </div>
 
         {/* Footer info & CTA preview */}
-        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-          <span className="text-slate-400">
-            {item.daysAgo < 14 ? 'At front desk' : 'Storage due'}
-          </span>
+        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-end text-[11px]">
           <span className="font-semibold text-amber-700 group-hover:underline">
-            View & Claim →
+            {actionLabel} →
           </span>
         </div>
       </div>

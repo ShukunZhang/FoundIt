@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck } from 'lucide-react';
+import { Archive, Compass, FileCheck, LayoutDashboard, Map, PlusCircle, QrCode, Scan, ShieldCheck, Tag } from 'lucide-react';
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
@@ -25,12 +25,12 @@ import {
   uploadPhoto,
 } from './lib/db';
 import { attachClaims } from './lib/mappers';
+import { describeForMatch, rememberEmbedding } from './lib/embed';
 import { forStudentView, studentItemLabel } from './lib/studentView';
 import { getNearestDesk } from './mockData';
 import type { Category, FoundItem, NotificationItem } from './types';
 import { Navbar } from './components/Navbar';
-import { TabBar } from './components/TabBar';
-import { StudentArea, type StudentTab } from './components/StudentArea';
+import { StudentHome } from './components/StudentHome';
 import { ItemDetailModal } from './components/ItemDetailModal';
 import { ClaimModal } from './components/ClaimModal';
 import { ReportFoundModal } from './components/ReportFoundModal';
@@ -45,17 +45,22 @@ import { AuthModal } from './components/AuthModal';
 import { GuideTour, type GuideStep } from './components/GuideTour';
 import { CampusMapView } from './components/CampusMapView';
 import { LostReportModal, type LostReportDraft } from './components/LostReportModal';
+import { ReturnTagsView } from './components/ReturnTagsView';
 import { StaffTimeline } from './components/StaffTimeline';
+import { MyItemsView, type MineSection } from './components/MyItemsView';
+import { PickupCodesView } from './components/PickupCodesView';
+import { useClaimAlerts } from './hooks/useClaimAlerts';
 
 const GUIDE_KEY = 'foundit.guide.v1';
 
 const STUDENT_GUIDE: GuideStep[] = [
   { selector: '[data-tour="search"]', title: 'Search every desk', body: 'Browse without an account. Filters cover category, building, and how long an item has been waiting.' },
   { selector: '[data-tour="actions"]', title: 'Lost or found', body: 'I lost something files a report. I found something logs an item for the nearest desk. Lost reports, matches, return tags, and claims live under your profile after you sign in.' },
-  { selector: '[data-tour="map"]', title: 'Campus map', body: 'The map in the top right shows which buildings hold items and where the staffed desks are.' },
-  { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'Matches, WatCard alerts, approvals, and pickup reminders stay in the inbox.' },
+  { selector: '[data-tour="map"]', title: 'Campus map', body: 'The Map tab shows which desks are holding items and where to pick them up.' },
+  { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'The bell keeps matches, WatCard alerts, approvals, and pickup reminders.' },
 ];
 
+type StudentTab = 'explore' | 'mine' | 'codes' | 'tags' | 'map';
 type StaffTab = 'dashboard' | 'inventory' | 'claims' | 'log' | 'scan' | 'map' | 'timeline';
 
 export function FoundItScreen() {
@@ -64,6 +69,7 @@ export function FoundItScreen() {
   const signedIn = profile.isSignedIn;
   const isStaff = profile.role === 'staff' || profile.role === 'admin';
   const [studentTab, setStudentTab] = useState<StudentTab>('explore');
+  const [mineSection, setMineSection] = useState<MineSection>('reports');
   const [staffTab, setStaffTab] = useState<StaffTab>('dashboard');
   const [staffDesk, setStaffDesk] = useState('All Desks');
   const [authOpen, setAuthOpen] = useState(false);
@@ -78,10 +84,36 @@ export function FoundItScreen() {
   const [qr, setQr] = useState({ open: false, code: '', title: '', desk: '' });
   const [scanCode, setScanCode] = useState('');
   const [banner, setBanner] = useState('');
+  const [pickupNotice, setPickupNotice] = useState<{ code: string; message: string } | null>(null);
 
   React.useEffect(() => {
     if (needsNewPassword) setAuthOpen(true);
   }, [needsNewPassword]);
+
+  React.useEffect(() => {
+    if (!signedIn && (studentTab === 'mine' || studentTab === 'codes')) setStudentTab('explore');
+  }, [signedIn, studentTab]);
+
+  const openWatIam = () => {
+    setAuthAudience('student');
+    setAuthMode('sign-in');
+    setAuthOpen(true);
+  };
+
+  const openStaffAuth = () => {
+    setAuthAudience('staff');
+    setAuthMode('sign-in');
+    setAuthOpen(true);
+  };
+
+  const openMine = (section: MineSection) => {
+    if (!profile.isSignedIn) {
+      openWatIam();
+      return;
+    }
+    setMineSection(section);
+    setStudentTab('mine');
+  };
 
   React.useEffect(() => {
     const hash = window.location.hash;
@@ -106,6 +138,7 @@ export function FoundItScreen() {
   });
   const tagQuery = useQuery({ queryKey: ['tags'], queryFn: fetchTags, enabled: signedIn });
   const timelineQuery = useQuery({ queryKey: ['timeline'], queryFn: fetchTimeline, enabled: configured });
+  useClaimAlerts(signedIn ? profile.id : undefined, setPickupNotice);
 
   const refresh = async () => {
     await queryClient.invalidateQueries();
@@ -162,6 +195,19 @@ export function FoundItScreen() {
       watcardName: draft.watcardName,
       status: draft.status,
     });
+    await rememberEmbedding('found', created.id, {
+      file: draft.photoFile,
+      text: describeForMatch([
+        draft.title,
+        draft.category,
+        draft.subcategory,
+        draft.colour,
+        draft.brand,
+        draft.publicDescription,
+        draft.distinctiveFeatures,
+        draft.locationFound,
+      ]),
+    }).catch(() => undefined);
     await refresh();
     const matchedAlert = (matchQuery.data ?? []).some((match) => match.foundItemId === created.id) || false;
     return { item: created, dropOffCode: created.dropOffCode || '', matchedAlert };
@@ -189,9 +235,7 @@ export function FoundItScreen() {
             void signOut();
             setStudentTab('explore');
           } else {
-            setAuthAudience('student');
-            setAuthMode('sign-in');
-            setAuthOpen(true);
+            openWatIam();
           }
         }}
         onGoHome={() => {
@@ -199,59 +243,102 @@ export function FoundItScreen() {
           else setStudentTab('explore');
         }}
         unreadCount={notifications.filter((note) => !note.read).length}
-        onOpenInbox={() => setStudentTab('inbox')}
+        onOpenInbox={() => openMine('inbox')}
         onOpenMap={() => setStudentTab('map')}
         activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
         pendingMatchCount={signedIn && profile.id ? (matchQuery.data ?? []).filter((match) => match.status === 'pending').length : 0}
-        onOpenMyClaims={() => setStudentTab('claims')}
-        onOpenReports={() => setStudentTab('reports')}
-        onOpenMatches={() => setStudentTab('matches')}
+        onOpenMyClaims={() => setStudentTab('codes')}
+        onOpenReports={() => openMine('reports')}
+        onOpenMatches={() => openMine('matches')}
         onOpenTags={() => setStudentTab('tags')}
-        onOpenStaffSignIn={() => {
-          setAuthAudience('staff');
-          setAuthMode('sign-in');
-          setAuthOpen(true);
-        }}
+        onOpenStaffSignIn={openStaffAuth}
         selectedStaffDesk={staffDesk}
         onStaffDeskChange={setStaffDesk}
         onOpenGuide={() => setGuideOpen(true)}
       />
       {banner && <p className="bg-rose-50 text-rose-800 text-xs px-4 py-2">{banner}</p>}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 pb-16">
+      {pickupNotice && (
+        <button
+          type="button"
+          onClick={() => {
+            if (!isStaff) setStudentTab('codes');
+            setQr({ open: true, code: pickupNotice.code, title: 'Your item', desk: 'the desk' });
+            setPickupNotice(null);
+          }}
+          className="bg-emerald-50 text-emerald-900 text-xs px-4 py-2 text-left font-semibold"
+        >
+          {pickupNotice.message} Tap to show the code.
+        </button>
+      )}
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 ${isStaff ? 'pb-16' : 'pb-24 sm:pb-16'}`}>
         {!isStaff ? (
-          <StudentArea
-            tab={studentTab}
-            onTabChange={setStudentTab}
-            signedIn={signedIn}
-            items={studentItems}
-            user={profile}
-            reports={reportQuery.data ?? []}
-            matches={matchQuery.data ?? []}
-            tags={tagQuery.data ?? []}
-            buildings={buildings.data ?? []}
-            desks={desks.data ?? []}
-            notifications={notifications}
-            onSelectItem={setSelected}
-            onOpenReportFound={() => {
-              if (signedIn) setReportFoundOpen(true);
-              else { setAuthAudience('student'); setAuthMode('sign-in'); setAuthOpen(true); }
-            }}
-            onOpenLost={() => {
-              if (signedIn) setLostOpen(true);
-              else { setAuthAudience('student'); setAuthMode('sign-in'); setAuthOpen(true); }
-            }}
-            onDecideMatch={async (id, status) => { await setMatchStatus(id, status); await refresh(); }}
-            onClaim={setClaimItem}
-            onCreateTag={async (label, category, colour) => { await createReturnTag(label, category, colour); await refresh(); }}
-            onScanTag={async (code) => { await scanReturnTag(code); await refresh(); setBanner('The owner was notified. Their contact details stayed private.'); }}
-            onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
-            onSignIn={() => { setAuthAudience('student'); setAuthMode('sign-in'); setAuthOpen(true); }}
-            onMarkAllRead={() => { void markNotificationsRead().then(refresh); }}
-            onNotificationAction={(note) => {
-              const item = studentItems.find((entry) => entry.id === note.relatedItemId);
-              if (item) setSelected(item);
-            }}
-          />
+          <div>
+            <TabBar
+              dock
+              tabs={[
+                ['explore', 'Search', Compass],
+                ...(signedIn ? [['mine', 'My items', FileCheck] as [string, string, typeof Compass]] : []),
+                ...(signedIn ? [['codes', 'Codes', QrCode] as [string, string, typeof Compass]] : []),
+                ['tags', 'Return tags', Tag],
+                ['map', 'Map', Map, 'map'],
+              ]}
+              active={studentTab}
+              onChange={(tab) => setStudentTab(tab as StudentTab)}
+            />
+            {studentTab === 'explore' && (
+              <StudentHome
+                items={studentItems}
+                onSelectItem={setSelected}
+                onOpenReportFound={() => signedIn ? setReportFoundOpen(true) : openWatIam()}
+                onOpenLost={() => signedIn ? setLostOpen(true) : openWatIam()}
+                onOpenNotifyMe={() => signedIn ? setLostOpen(true) : openWatIam()}
+              />
+            )}
+            {studentTab === 'mine' && signedIn && (
+              <MyItemsView
+                section={mineSection}
+                onSection={setMineSection}
+                reports={reportQuery.data ?? []}
+                matches={matchQuery.data ?? []}
+                items={studentItems}
+                user={profile}
+                notifications={notifications}
+                unreadCount={notifications.filter((note) => !note.read).length}
+                onDecide={async (id, status) => { await setMatchStatus(id, status); await refresh(); }}
+                onClaim={setClaimItem}
+                onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
+                onExplore={() => setStudentTab('explore')}
+                onSignIn={openWatIam}
+                onMarkAllAsRead={() => { void markNotificationsRead().then(refresh); }}
+                onNotificationAction={(note) => {
+                  if (note.pickupCode) {
+                    const item = studentItems.find((entry) => entry.id === note.relatedItemId);
+                    setQr({ open: true, code: note.pickupCode, title: item ? studentItemLabel(item) : note.title, desk: item?.desk ?? 'the desk' });
+                    setStudentTab('codes');
+                    return;
+                  }
+                  const item = studentItems.find((entry) => entry.id === note.relatedItemId);
+                  if (item) setSelected(item);
+                }}
+              />
+            )}
+            {studentTab === 'codes' && signedIn && (
+              <PickupCodesView
+                claims={claimQuery.data ?? []}
+                items={studentItems}
+                userId={profile.id ?? ''}
+                onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
+              />
+            )}
+            {studentTab === 'tags' && (
+              <ReturnTagsView
+                tags={tagQuery.data ?? []}
+                onCreate={async (label, category, colour) => { await createReturnTag(label, category, colour); await refresh(); }}
+                onSimulateScan={async (code) => { await scanReturnTag(code); await refresh(); setBanner('The owner was notified. Their contact details stayed private.'); }}
+              />
+            )}
+            {studentTab === 'map' && <CampusMapView buildings={buildings.data ?? []} desks={desks.data ?? []} items={studentItems} reports={reportQuery.data ?? []} />}
+          </div>
         ) : (
           <div>
             <TabBar
@@ -326,7 +413,7 @@ export function FoundItScreen() {
         isOpen={Boolean(claimItem)}
         onClose={() => setClaimItem(null)}
         user={profile}
-        onSignIn={() => { setAuthAudience('student'); setAuthMode('sign-in'); setAuthOpen(true); }}
+        onSignIn={openWatIam}
         onSubmitClaim={async (item, data) => {
           const claim = await createClaim(item.id, data.verificationAnswer, data.distinguishingDetail);
           await refresh();
@@ -348,15 +435,20 @@ export function FoundItScreen() {
         initialCategory="all"
         initialSearchQuery=""
         onSaveAlert={async (alert) => {
-          await createLostReport({
-            title: alert.brandOrKeyword || `${alert.colour} ${alert.category}`,
+          const title = alert.brandOrKeyword || `${alert.colour} ${alert.category}`;
+          const description = alert.brandOrKeyword || alert.category;
+          const created = await createLostReport({
+            title,
             category: alert.category as Category,
             colour: alert.colour || 'Unknown',
             brand: alert.brandOrKeyword,
-            description: alert.brandOrKeyword || alert.category,
+            description,
             building: alert.locationLost || 'Campus',
             lostAt: new Date(alert.dateLost).toISOString(),
           });
+          await rememberEmbedding('lost', created.id, {
+            text: describeForMatch([title, alert.colour, alert.category, alert.brandOrKeyword, alert.locationLost, description]),
+          }).catch(() => undefined);
           await refresh();
         }}
       />
@@ -366,16 +458,34 @@ export function FoundItScreen() {
         onSubmit={async (draft: LostReportDraft) => {
           const imagePath = draft.photo ? await uploadPhoto(draft.photo, 'private-photos') : undefined;
           const parsedLostAt = draft.lostAt ? new Date(draft.lostAt) : new Date();
-          await createLostReport({
+          const colour = draft.colour.trim();
+          const description = draft.description.trim() || draft.title.trim();
+          const building = draft.building.trim();
+          const created = await createLostReport({
             ...draft,
-            colour: draft.colour.trim(),
-            description: draft.description.trim() || draft.title.trim(),
-            building: draft.building.trim(),
+            colour,
+            description,
+            building,
             lostAt: Number.isNaN(parsedLostAt.getTime()) ? new Date().toISOString() : parsedLostAt.toISOString(),
             imagePath,
           });
+          await rememberEmbedding('lost', created.id, {
+            file: draft.photo,
+            text: describeForMatch([
+              draft.title,
+              draft.category,
+              draft.subcategory,
+              colour,
+              draft.brand,
+              description,
+              draft.distinctiveFeatures,
+              building,
+              draft.locationDetail,
+            ]),
+          }).catch(() => undefined);
           await refresh();
-          setStudentTab('reports');
+          setMineSection('reports');
+          setStudentTab('mine');
         }}
       />
       <QRCodeModal
@@ -387,13 +497,46 @@ export function FoundItScreen() {
         onSimulateStaffScan={isStaff ? () => { setScanCode(qr.code); setStaffTab('scan'); } : undefined}
       />
       {needsNewPassword && !authOpen && (
-        <button type="button" onClick={() => setAuthOpen(true)} className="fixed bottom-4 right-4 z-40 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold shadow-lg">
+        <button type="button" onClick={() => setAuthOpen(true)} className="fixed bottom-20 right-4 z-40 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold shadow-lg sm:bottom-4">
           Choose a new password
         </button>
       )}
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} audience={authAudience} />
+      <AuthModal key={`${authMode}-${authAudience}`} isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} audience={authAudience} />
       <GuideTour open={guideOpen && !isStaff} steps={STUDENT_GUIDE} onClose={closeGuide} />
     </div>
   );
 }
 
+function TabBar({
+  tabs,
+  active,
+  onChange,
+  dark = false,
+  dock = false,
+}: {
+  tabs: Array<[string, string, React.ComponentType<{ className?: string }>, string?]>;
+  active: string;
+  onChange: (tab: string) => void;
+  dark?: boolean;
+  dock?: boolean;
+}) {
+  const columns = tabs.length === 5 ? 'grid-cols-5' : tabs.length === 4 ? 'grid-cols-4' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-7';
+  return (
+    <div className={dock
+      ? `fixed bottom-0 inset-x-0 z-40 grid ${columns} border-t border-slate-200 bg-white px-1 pt-1.5 pb-[max(0.45rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mb-5 sm:rounded-2xl sm:border sm:p-1.5`
+      : `grid ${columns} gap-1 mb-5 w-full p-1.5 bg-white rounded-2xl border border-slate-200`}>
+      {tabs.map(([id, label, Icon, tour]) => (
+        <button
+          key={id}
+          type="button"
+          data-tour={tour}
+          onClick={() => onChange(id)}
+          className={`min-w-0 py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 text-center leading-tight ${active === id ? (dark ? 'bg-slate-950 text-white' : 'bg-amber-400 text-slate-950') : 'text-slate-600'}`}
+        >
+          <Icon className={`w-4 h-4 shrink-0 ${dock ? '' : 'hidden sm:block'}`} />
+          <span className={dock ? '' : 'truncate'}>{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}

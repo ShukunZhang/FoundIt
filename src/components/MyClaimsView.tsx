@@ -30,7 +30,7 @@ export const MyClaimsView: React.FC<MyClaimsViewProps> = ({
 }) => {
   // Filter items where claim claimant matches Lily Lu or current user
   const claimedItems = items.filter(
-    (item) => item.claim && item.claim.claimantEmail === user.email
+    (item) => item.claim && item.claim.claimantId === user.id
   );
 
   const activeClaims = claimedItems.filter(

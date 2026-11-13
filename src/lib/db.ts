@@ -45,7 +45,7 @@ export async function fetchProfile(userId: string) {
 export async function fetchItems(includePrivate: boolean) {
   const client = requireClient();
   const result = includePrivate
-    ? await client.from('found_items').select('*, desks(name)').order('logged_at', { ascending: false })
+    ? await client.from('found_items').select('id, title, category, subcategory, colour, brand, public_description, distinctive_features, desk_id, logged_at, status, valuable, storage_spot, location_found, drop_off_code, image_path, image_bucket, finder_id, desks(name)').order('logged_at', { ascending: false })
     : await client.from('found_items').select('id, category, subcategory, colour, desk_id, logged_at, status, valuable, desks(name)').order('logged_at', { ascending: false });
   fail(result.error);
   const secretByItem = new Map<string, { item_id: string; detailed_description: string | null; watcard_name: string | null }>();
@@ -79,7 +79,7 @@ export async function fetchNotifications() {
 
 export async function fetchReports() {
   const client = requireClient();
-  const { data, error } = await client.from('lost_reports').select('*').order('created_at', { ascending: false });
+  const { data, error } = await client.from('lost_reports').select('id, owner_id, title, category, subcategory, colour, brand, description, distinctive_features, private_details, building, location_detail, lost_at, image_path, status, created_at').order('created_at', { ascending: false });
   if (error) return [];
   return (data ?? []).map(mapReport);
 }
@@ -158,9 +158,10 @@ export async function createFoundItem(input: NewItemInput) {
       image_bucket: input.imageBucket || null,
       status: input.status ?? 'available',
     })
-    .select('*, desks(name)')
+    .select('id, title, category, subcategory, colour, brand, public_description, distinctive_features, desk_id, logged_at, status, valuable, storage_spot, location_found, drop_off_code, image_path, image_bucket, finder_id, desks(name)')
     .single();
   fail(error);
+  if (!data) throw new Error('The item was not saved.');
 
   if (input.detailedDescription || input.watcardName) {
     const secret = await client.from('found_item_secrets').insert({
@@ -205,9 +206,10 @@ export async function createLostReport(input: {
       image_path: input.imagePath || null,
       owner_id: (await client.auth.getUser()).data.user?.id,
     })
-    .select('*')
+    .select('id, owner_id, title, category, subcategory, colour, brand, description, distinctive_features, private_details, building, location_detail, lost_at, image_path, status, created_at')
     .single();
   fail(error);
+  if (!data) throw new Error('The lost report was not saved.');
   return mapReport(data);
 }
 
@@ -231,8 +233,15 @@ export async function createClaim(itemId: string, verificationAnswer?: string, d
 
 export async function reviewClaim(claimId: string, status: 'approved' | 'rejected', staffNotes: string) {
   const client = requireClient();
-  const { error } = await client.from('claims').update({ status, staff_notes: staffNotes }).eq('id', claimId);
+  const { data, error } = await client
+    .from('claims')
+    .update({ status, staff_notes: staffNotes })
+    .eq('id', claimId)
+    .select('id, status, pickup_code')
+    .maybeSingle();
   fail(error);
+  if (!data) throw new Error('That claim could not be updated.');
+  if (status === 'approved' && !data.pickup_code) throw new Error('The claim was approved without a pickup code.');
 }
 
 export async function updateItemStatus(itemId: string, status: ItemStatus, storageSpot?: string, overrideNote?: string) {

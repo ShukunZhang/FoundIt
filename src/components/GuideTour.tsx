@@ -18,14 +18,25 @@ export const GuideTour: React.FC<GuideTourProps> = ({ open, steps, onClose }) =>
   const step = steps[index];
 
   useEffect(() => {
-    if (!open) return;
-    const node = step ? document.querySelector(step.selector) : null;
-    if (node instanceof HTMLElement) {
-      node.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      setRect(node.getBoundingClientRect());
-    } else {
+    if (!open || !step) return;
+    const node = [...document.querySelectorAll(step.selector)].find((entry): entry is HTMLElement => {
+      if (!(entry instanceof HTMLElement)) return false;
+      const box = entry.getBoundingClientRect();
+      return box.width > 0 && box.height > 0;
+    });
+    if (!node) {
       setRect(null);
+      return;
     }
+    node.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+    const measure = () => setRect(node.getBoundingClientRect());
+    measure();
+    const frame = requestAnimationFrame(measure);
+    window.addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', measure);
+    };
   }, [open, step]);
 
   useEffect(() => {
@@ -34,7 +45,9 @@ export const GuideTour: React.FC<GuideTourProps> = ({ open, steps, onClose }) =>
 
   if (!open || !step) return null;
 
-  const top = rect ? Math.min(window.innerHeight - 180, rect.bottom + 12) : 80;
+  const top = rect
+    ? (rect.bottom + 188 > window.innerHeight ? Math.max(12, rect.top - 176) : rect.bottom + 12)
+    : 80;
   const left = rect ? Math.min(window.innerWidth - 320, Math.max(12, rect.left)) : 16;
 
   return (
@@ -51,7 +64,9 @@ export const GuideTour: React.FC<GuideTourProps> = ({ open, steps, onClose }) =>
         <h3 className="font-bold text-slate-950 mt-1">{step.title}</h3>
         <p className="text-xs text-slate-600 mt-1">{step.body}</p>
         <div className="flex gap-2 mt-3">
-          <button type="button" className="text-xs px-3 py-2 rounded-lg bg-slate-100" onClick={() => setIndex((value) => Math.max(0, value - 1))} disabled={index === 0}>Back</button>
+          {index > 0 && (
+            <button type="button" className="text-xs px-3 py-2 rounded-lg bg-slate-100" onClick={() => setIndex((value) => value - 1)}>Back</button>
+          )}
           {index < steps.length - 1 ? (
             <button type="button" className="text-xs px-3 py-2 rounded-lg bg-slate-950 text-white" onClick={() => setIndex((value) => value + 1)}>Next</button>
           ) : (

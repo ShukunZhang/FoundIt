@@ -18,7 +18,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   choosingNewPassword = false,
 }) => {
   const { signIn, signUp, signOut, acceptSession, requestPasswordReset, updatePassword, refreshProfile } = useAuth();
-  const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'forgot'>('sign-up');
+  const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'forgot'>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -104,7 +104,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       ? 'Reset your password'
       : forStaff
         ? (mode === 'sign-in' ? 'Staff sign in' : 'Create a staff account')
-        : (mode === 'sign-in' ? 'Sign in' : 'Create your FoundIt account');
+        : (mode === 'sign-in' ? 'Sign in with WatIAM' : 'Create your FoundIt account');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -113,6 +113,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <h2 className="text-lg font-bold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close"><X className="w-5 h-5" /></button>
         </div>
+        {!choosingNewPassword && mode !== 'forgot' && (
+          <p className="text-xs text-slate-600">
+            {forStaff
+              ? 'Staff accounts are separate from student WatIAM sign-in.'
+              : 'Sign in so we can notify you and hold items for you.'}
+          </p>
+        )}
         {!choosingNewPassword && mode === 'sign-up' && (
           <>
             <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Full name" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
@@ -122,7 +129,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </>
         )}
         {!choosingNewPassword && (
-          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={forStaff ? 'Staff email' : 'Email'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={forStaff ? 'Staff email' : 'WatIAM email'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
         )}
         {mode !== 'forgot' && (
           <input required type="password" minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={choosingNewPassword ? 'New password' : 'Password'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
@@ -136,7 +143,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {error && <p className="text-xs text-rose-700">{error}</p>}
         {message && <p className="text-xs text-emerald-800">{message}</p>}
         <button disabled={busy} className="w-full py-3 rounded-xl bg-slate-950 text-white text-sm font-bold">
-          {busy ? 'Working…' : choosingNewPassword ? 'Save password' : mode === 'forgot' ? 'Send reset link' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
+          {busy ? 'Working…' : choosingNewPassword ? 'Save password' : mode === 'forgot' ? 'Send reset link' : mode === 'sign-in' ? (forStaff ? 'Staff sign in' : 'Sign in with WatIAM') : 'Create account'}
         </button>
         {!choosingNewPassword && mode === 'sign-in' && (
           <button type="button" className="w-full text-xs font-semibold text-amber-800" onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}>

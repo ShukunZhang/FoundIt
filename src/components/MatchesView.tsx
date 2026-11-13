@@ -13,7 +13,7 @@ interface MatchesViewProps {
 export const MatchesView: React.FC<MatchesViewProps> = ({ matches, items, reports, onDecide, onClaim }) => {
   const visible = matches.filter((match) => match.status !== 'rejected');
   if (visible.length === 0) {
-    return <p className="text-sm text-slate-600 bg-white rounded-2xl p-6 border border-slate-200">No ranked matches yet. A match needs more than a shared colour: category plus a brand, detail, or place.</p>;
+    return <p className="text-sm text-slate-600 bg-white rounded-2xl p-6 border border-slate-200">No ranked matches yet. A match can come from a similar photo, or from the category plus a brand, detail, or place.</p>;
   }
   return (
     <div className="space-y-3">
