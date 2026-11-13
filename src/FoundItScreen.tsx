@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Bell, Compass, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck, Tag } from 'lucide-react';
+import { Archive, ChevronLeft, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck } from 'lucide-react';
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
@@ -54,12 +54,20 @@ const GUIDE_KEY = 'foundit.guide.v1';
 
 const STUDENT_GUIDE: GuideStep[] = [
   { selector: '[data-tour="search"]', title: 'Search every desk', body: 'Browse without an account. Filters cover category, building, and how long an item has been waiting.' },
-  { selector: '[data-tour="actions"]', title: 'Report or claim', body: 'Found something? Report it. Lost something that is not here yet? Save a lost report and we match it when it arrives.' },
-  { selector: '[data-tour="scanner"]', title: 'Photo scan', body: 'A photo reads the main colour on your phone. If a Gemini key is set on the server, it also suggests category and brand. You confirm before anything is saved.' },
-  { selector: '[data-tour="map"]', title: 'Campus map', body: 'Pins show which buildings hold items and where the staffed desks are.' },
-  { selector: '[data-tour="tags"]', title: 'Return tags', body: 'Generate a WAT code for a bottle or laptop. A finder can scan it without seeing your email.' },
-  { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'Matches, WatCard alerts, approvals, and pickup reminders stay in the app.' },
+  { selector: '[data-tour="actions"]', title: 'Lost or found', body: 'I lost something files a report. I found something logs an item for the nearest desk. Claims, codes, and return tags live under your profile after you sign in.' },
+  { selector: '[data-tour="map"]', title: 'Campus map', body: 'The map in the top right shows which buildings hold items and where the staffed desks are.' },
+  { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'Matches, WatCard alerts, approvals, and pickup reminders stay in the inbox.' },
 ];
+
+const STUDENT_TITLES: Record<StudentTab, string> = {
+  explore: 'Search',
+  reports: 'Lost reports',
+  matches: 'Matches',
+  tags: 'Return tags',
+  map: 'Campus map',
+  claims: 'My claims',
+  inbox: 'Inbox',
+};
 
 type StudentTab = 'explore' | 'reports' | 'matches' | 'tags' | 'map' | 'claims' | 'inbox';
 type StaffTab = 'dashboard' | 'inventory' | 'claims' | 'log' | 'scan' | 'map' | 'timeline';
@@ -184,8 +192,11 @@ export function FoundItScreen() {
         onToggleSignIn={() => { if (signedIn) void signOut(); else setAuthOpen(true); }}
         unreadCount={notifications.filter((note) => !note.read).length}
         onOpenInbox={() => { setRole('student'); setStudentTab('inbox'); }}
+        onOpenMap={() => { setRole('student'); setStudentTab('map'); }}
         activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
         onOpenMyClaims={() => { setRole('student'); setStudentTab('claims'); }}
+        onOpenReports={() => { setRole('student'); setStudentTab('reports'); }}
+        onOpenTags={() => { setRole('student'); setStudentTab('tags'); }}
         selectedStaffDesk={staffDesk}
         onStaffDeskChange={setStaffDesk}
         onOpenGuide={() => setGuideOpen(true)}
@@ -194,25 +205,25 @@ export function FoundItScreen() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 pb-16">
         {role === 'student' ? (
           <div>
-            <TabBar
-              tabs={[
-                ['explore', 'Search', Compass],
-                ['reports', 'Lost reports', FileCheck],
-                ['matches', 'Matches', ShieldCheck],
-                ['tags', 'Return tags', Tag],
-                ['map', 'Map', Map],
-                ['claims', 'Claims', FileCheck],
-                ['inbox', 'Inbox', Bell],
-              ]}
-              active={studentTab}
-              onChange={(tab) => setStudentTab(tab as StudentTab)}
-            />
+            {studentTab !== 'explore' && (
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setStudentTab(studentTab === 'matches' ? 'reports' : 'explore')}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-slate-950"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  {studentTab === 'matches' ? 'Lost reports' : 'Search'}
+                </button>
+                <h2 className="text-sm font-bold text-slate-950">{STUDENT_TITLES[studentTab]}</h2>
+              </div>
+            )}
             {studentTab === 'explore' && (
               <StudentHome
                 items={items}
                 onSelectItem={setSelected}
                 onOpenReportFound={() => signedIn ? setReportFoundOpen(true) : setAuthOpen(true)}
-                onOpenMyClaims={() => setStudentTab('claims')}
+                onOpenLost={() => signedIn ? setLostOpen(true) : setAuthOpen(true)}
                 onOpenNotifyMe={() => signedIn ? setLostOpen(true) : setAuthOpen(true)}
               />
             )}

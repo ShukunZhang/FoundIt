@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Bell, UserCheck, LogOut, LogIn, ChevronDown, Check } from 'lucide-react';
+import { Shield, Bell, Map, Tag, FileCheck, LogOut, LogIn, ChevronDown } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface NavbarProps {
@@ -9,8 +9,11 @@ interface NavbarProps {
   onToggleSignIn: () => void;
   unreadCount: number;
   onOpenInbox: () => void;
+  onOpenMap: () => void;
   activeClaimsCount: number;
   onOpenMyClaims: () => void;
+  onOpenReports: () => void;
+  onOpenTags: () => void;
   selectedStaffDesk?: string;
   onStaffDeskChange?: (desk: string) => void;
   onOpenGuide?: () => void;
@@ -23,8 +26,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleSignIn,
   unreadCount,
   onOpenInbox,
+  onOpenMap,
   activeClaimsCount,
   onOpenMyClaims,
+  onOpenReports,
+  onOpenTags,
   selectedStaffDesk,
   onStaffDeskChange,
   onOpenGuide,
@@ -83,6 +89,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Guide
               </button>
             )}
+            <button
+              data-tour="map"
+              onClick={onOpenMap}
+              className="relative p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
+              title="Campus map"
+              aria-label="Campus map"
+            >
+              <Map className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
             <button
               data-tour="inbox"
               onClick={onOpenInbox}
@@ -155,12 +171,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="pt-2 space-y-1">
                       <button
                         onClick={() => {
+                          onOpenReports();
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 font-medium flex items-center gap-1.5"
+                      >
+                        <FileCheck className="w-3.5 h-3.5" />
+                        <span>My lost reports</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          onOpenTags();
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 font-medium flex items-center gap-1.5"
+                      >
+                        <Tag className="w-3.5 h-3.5" />
+                        <span>Return tags</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
                           onOpenMyClaims();
                           setShowUserMenu(false);
                         }}
                         className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 font-medium flex items-center justify-between"
                       >
-                        <span>View My Claims</span>
+                        <span>My claims & codes</span>
                         <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-800">
                           {activeClaimsCount} active
                         </span>

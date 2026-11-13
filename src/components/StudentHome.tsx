@@ -1,26 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Search, 
-  Filter, 
-  MapPin, 
-  PlusCircle, 
-  Sparkles, 
-  FileCheck, 
-  BellRing, 
-  X, 
+import {
+  Search,
+  MapPin,
+  PlusCircle,
+  BellRing,
+  X,
   Calendar,
-  Lock,
-  ChevronRight
 } from 'lucide-react';
 import { Category, FoundItem } from '../types';
 import { ItemCard } from './ItemCard';
-import { CAMPUS_DESKS } from '../mockData';
 
 interface StudentHomeProps {
   items: FoundItem[];
   onSelectItem: (item: FoundItem) => void;
   onOpenReportFound: () => void;
-  onOpenMyClaims: () => void;
+  onOpenLost: () => void;
   onOpenNotifyMe: (category?: Category | 'all', searchQuery?: string) => void;
 }
 
@@ -57,7 +51,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
   items,
   onSelectItem,
   onOpenReportFound,
-  onOpenMyClaims,
+  onOpenLost,
   onOpenNotifyMe,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,17 +148,13 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
           )}
         </div>
 
-        {/* Three Primary Action Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-4" data-tour="actions">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4" data-tour="actions">
           <button
-            onClick={() => {
-              const el = document.getElementById('search-grid');
-              el?.scrollIntoView({ behavior: 'smooth' });
-            }}
+            onClick={onOpenLost}
             className="py-3 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors"
           >
             <Search className="w-4 h-4 text-amber-400" />
-            <span>Find my item</span>
+            <span>I lost something</span>
           </button>
 
           <button
@@ -173,14 +163,6 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
           >
             <PlusCircle className="w-4 h-4 text-slate-950" />
             <span>I found something</span>
-          </button>
-
-          <button
-            onClick={onOpenMyClaims}
-            className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-slate-200/80"
-          >
-            <FileCheck className="w-4 h-4 text-slate-700" />
-            <span>My claims & codes</span>
           </button>
         </div>
 
