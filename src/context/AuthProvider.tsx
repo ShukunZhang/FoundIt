@@ -43,47 +43,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [needsNewPassword, setNeedsNewPassword] = useState(false);
   const generation = useRef(0);
   const holdProfile = useRef(false);
+  const signingOut = useRef(false);
 
-  const publishProfile = useCallback((next: UserProfile, generationAtStart: number) => {
-    if (generation.current !== generationAtStart || holdProfile.current) return;
-    setProfile(next);
+  const sessionUserId = useCallback(async (): Promise<string | null> => {
+    if (!supabase) return null;
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user?.id ?? null;
   }, []);
 
   const refreshProfile = useCallback(async (): Promise<UserProfile> => {
     const generationAtStart = generation.current;
+    const stillCurrent = () => generation.current === generationAtStart && !signingOut.current;
     if (!supabase) return GUEST_PROFILE;
     const { data } = await supabase.auth.getUser();
-    if (generation.current !== generationAtStart) return GUEST_PROFILE;
+    if (!stillCurrent()) return GUEST_PROFILE;
     if (!data.user) {
-      publishProfile(GUEST_PROFILE, generationAtStart);
+      if (!holdProfile.current) setProfile(GUEST_PROFILE);
       return GUEST_PROFILE;
     }
     const next = await fetchProfile(data.user.id);
-    if (generation.current !== generationAtStart) return GUEST_PROFILE;
+    if (!stillCurrent()) return GUEST_PROFILE;
     let resolved = next ?? { ...GUEST_PROFILE, id: data.user.id, email: data.user.email ?? '', isSignedIn: true };
     const pending = localStorage.getItem(PENDING_CODE_KEY);
     if (pending && next && next.role === 'student') {
       await redeemStaffCode(pending);
       localStorage.removeItem(PENDING_CODE_KEY);
       const upgraded = await fetchProfile(data.user.id);
-      if (generation.current !== generationAtStart) return GUEST_PROFILE;
+      if (!stillCurrent()) return GUEST_PROFILE;
       if (upgraded) resolved = upgraded;
     }
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (generation.current !== generationAtStart || !sessionData.session) return GUEST_PROFILE;
-    publishProfile(resolved, generationAtStart);
+    const seenId = await sessionUserId();
+    if (!stillCurrent() || seenId !== resolved.id) return GUEST_PROFILE;
+    if (holdProfile.current) return resolved;
+    const confirmedId = await sessionUserId();
+    if (!stillCurrent() || holdProfile.current || confirmedId !== resolved.id) return GUEST_PROFILE;
+    setProfile(resolved);
     return resolved;
-  }, [publishProfile]);
+  }, [sessionUserId]);
 
   const signOut = useCallback(async () => {
     generation.current += 1;
-    holdProfile.current = true;
+    signingOut.current = true;
+    holdProfile.current = false;
     setProfile(GUEST_PROFILE);
     setNeedsNewPassword(false);
     try {
       if (supabase) await supabase.auth.signOut();
     } finally {
-      holdProfile.current = false;
+      signingOut.current = false;
     }
   }, []);
 
