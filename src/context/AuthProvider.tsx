@@ -23,14 +23,14 @@ interface AuthContextValue {
   loading: boolean;
   profile: UserProfile;
   authError: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<UserProfile>;
   signUp: (input: { name: string; email: string; password: string; studentId: string; staffCode?: string }) => Promise<string>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   needsNewPassword: boolean;
   signOut: () => Promise<void>;
   redeemCode: (code: string) => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<UserProfile>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -41,22 +41,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [needsNewPassword, setNeedsNewPassword] = useState(false);
 
-  const refreshProfile = useCallback(async () => {
-    if (!supabase) return;
+  const refreshProfile = useCallback(async (): Promise<UserProfile> => {
+    if (!supabase) return GUEST_PROFILE;
     const { data } = await supabase.auth.getUser();
     if (!data.user) {
       setProfile(GUEST_PROFILE);
-      return;
+      return GUEST_PROFILE;
     }
     const next = await fetchProfile(data.user.id);
-    setProfile(next ?? { ...GUEST_PROFILE, id: data.user.id, email: data.user.email ?? '', isSignedIn: true });
+    let resolved = next ?? { ...GUEST_PROFILE, id: data.user.id, email: data.user.email ?? '', isSignedIn: true };
     const pending = localStorage.getItem(PENDING_CODE_KEY);
     if (pending && next && next.role === 'student') {
       await redeemStaffCode(pending);
       localStorage.removeItem(PENDING_CODE_KEY);
       const upgraded = await fetchProfile(data.user.id);
-      if (upgraded) setProfile(upgraded);
+      if (upgraded) resolved = upgraded;
     }
+    setProfile(resolved);
+    return resolved;
   }, []);
 
   useEffect(() => {
@@ -85,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthError(error.message);
       throw new Error(error.message);
     }
-    await refreshProfile();
+    return refreshProfile();
   }, [refreshProfile]);
 
   const signUp = useCallback(async (input: { name: string; email: string; password: string; studentId: string; staffCode?: string }) => {

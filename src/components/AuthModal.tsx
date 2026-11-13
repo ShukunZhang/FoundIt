@@ -6,7 +6,7 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMode?: 'sign-in' | 'sign-up';
-  initialStaff?: boolean;
+  audience?: 'student' | 'staff';
   choosingNewPassword?: boolean;
 }
 
@@ -14,10 +14,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   initialMode = 'sign-up',
-  initialStaff = false,
+  audience = 'student',
   choosingNewPassword = false,
 }) => {
-  const { signIn, signUp, requestPasswordReset, updatePassword } = useAuth();
+  const { signIn, signUp, signOut, requestPasswordReset, updatePassword, refreshProfile } = useAuth();
   const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'forgot'>('sign-up');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -25,18 +25,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [studentId, setStudentId] = useState('');
   const [staffCode, setStaffCode] = useState('');
-  const [showStaff, setShowStaff] = useState(initialStaff);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const forStaff = audience === 'staff';
 
   useEffect(() => {
     if (!isOpen) return;
     setMode(initialMode);
-    setShowStaff(initialStaff);
     setError('');
     setMessage('');
-  }, [isOpen, initialMode, initialStaff]);
+  }, [isOpen, initialMode, audience]);
+
+  const expectAudience = async (role: string | undefined) => {
+    const staffAccount = role === 'staff' || role === 'admin';
+    if (forStaff && !staffAccount) {
+      await signOut();
+      throw new Error('This account is not a staff desk account. Use student sign in.');
+    }
+    if (!forStaff && staffAccount) {
+      await signOut();
+      throw new Error('Staff accounts use Staff sign in.');
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -58,19 +69,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
       if (mode === 'sign-in') {
-        await signIn(email, password);
+        const signedInProfile = await signIn(email, password);
+        await expectAudience(signedInProfile.role);
         onClose();
       } else {
+        if (forStaff && !staffCode.trim()) throw new Error('Enter the staff desk code.');
         const result = await signUp({
           name,
           email,
           password,
-          studentId,
-          staffCode: showStaff ? staffCode : undefined,
+          studentId: forStaff ? '' : studentId,
+          staffCode: forStaff ? staffCode : undefined,
         });
         if (result === 'confirm-email') {
           setMessage('Check your inbox, then sign in with the same password.');
         } else {
+          const signedInProfile = await refreshProfile();
+          await expectAudience(signedInProfile.role);
           onClose();
         }
       }
@@ -85,9 +100,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     ? 'Choose a new password'
     : mode === 'forgot'
       ? 'Reset your password'
-      : mode === 'sign-in'
-        ? 'Sign in'
-        : 'Create your FoundIt account';
+      : forStaff
+        ? (mode === 'sign-in' ? 'Staff sign in' : 'Create a staff account')
+        : (mode === 'sign-in' ? 'Sign in' : 'Create your FoundIt account');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -99,13 +114,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {!choosingNewPassword && mode === 'sign-up' && (
           <>
             <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Full name" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
-            {!showStaff && (
+            {!forStaff && (
               <input value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="Student number (optional)" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
             )}
           </>
         )}
         {!choosingNewPassword && (
-          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={showStaff ? 'Staff email' : 'Email'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={forStaff ? 'Staff email' : 'Email'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
         )}
         {mode !== 'forgot' && (
           <input required type="password" minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={choosingNewPassword ? 'New password' : 'Password'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
@@ -113,14 +128,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {choosingNewPassword && (
           <input required type="password" minLength={6} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm new password" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
         )}
-        {!choosingNewPassword && mode === 'sign-up' && (
-          <label className="flex items-center gap-2 text-xs text-slate-700">
-            <input type="checkbox" checked={showStaff} onChange={(event) => setShowStaff(event.target.checked)} />
-            I have a staff desk code
-          </label>
-        )}
-        {showStaff && mode === 'sign-up' && !choosingNewPassword && (
-          <input value={staffCode} onChange={(event) => setStaffCode(event.target.value)} placeholder="Staff code" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+        {forStaff && mode === 'sign-up' && !choosingNewPassword && (
+          <input required value={staffCode} onChange={(event) => setStaffCode(event.target.value)} placeholder="Staff desk code" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
         )}
         {error && <p className="text-xs text-rose-700">{error}</p>}
         {message && <p className="text-xs text-emerald-800">{message}</p>}

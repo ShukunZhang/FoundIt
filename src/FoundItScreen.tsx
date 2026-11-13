@@ -63,12 +63,12 @@ export function FoundItScreen() {
   const queryClient = useQueryClient();
   const signedIn = profile.isSignedIn;
   const isStaff = profile.role === 'staff' || profile.role === 'admin';
-  const [role, setRole] = useState<'student' | 'staff'>('student');
   const [studentTab, setStudentTab] = useState<StudentTab>('explore');
   const [staffTab, setStaffTab] = useState<StaffTab>('dashboard');
   const [staffDesk, setStaffDesk] = useState('All Desks');
   const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-up');
+  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
+  const [authAudience, setAuthAudience] = useState<'student' | 'staff'>('student');
   const [guideOpen, setGuideOpen] = useState(() => localStorage.getItem(GUIDE_KEY) !== 'done');
   const [reportFoundOpen, setReportFoundOpen] = useState(false);
   const [lostOpen, setLostOpen] = useState(false);
@@ -182,37 +182,43 @@ export function FoundItScreen() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar
-        currentView={role}
-        onViewChange={setRole}
+        currentView={isStaff ? 'staff' : 'student'}
         user={profile}
         onToggleSignIn={() => {
           if (signedIn) {
             void signOut();
-            setRole('student');
             setStudentTab('explore');
           } else {
+            setAuthAudience('student');
+            setAuthMode('sign-in');
             setAuthOpen(true);
           }
         }}
         onGoHome={() => {
-          if (role === 'student') setStudentTab('explore');
+          if (isStaff) setStaffTab('dashboard');
+          else setStudentTab('explore');
         }}
         unreadCount={notifications.filter((note) => !note.read).length}
-        onOpenInbox={() => { setRole('student'); setStudentTab('inbox'); }}
-        onOpenMap={() => { setRole('student'); setStudentTab('map'); }}
+        onOpenInbox={() => setStudentTab('inbox')}
+        onOpenMap={() => setStudentTab('map')}
         activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
         pendingMatchCount={signedIn && profile.id ? (matchQuery.data ?? []).filter((match) => match.status === 'pending').length : 0}
-        onOpenMyClaims={() => { setRole('student'); setStudentTab('claims'); }}
-        onOpenReports={() => { setRole('student'); setStudentTab('reports'); }}
-        onOpenMatches={() => { setRole('student'); setStudentTab('matches'); }}
-        onOpenTags={() => { setRole('student'); setStudentTab('tags'); }}
+        onOpenMyClaims={() => setStudentTab('claims')}
+        onOpenReports={() => setStudentTab('reports')}
+        onOpenMatches={() => setStudentTab('matches')}
+        onOpenTags={() => setStudentTab('tags')}
+        onOpenStaffSignIn={() => {
+          setAuthAudience('staff');
+          setAuthMode('sign-in');
+          setAuthOpen(true);
+        }}
         selectedStaffDesk={staffDesk}
         onStaffDeskChange={setStaffDesk}
         onOpenGuide={() => setGuideOpen(true)}
       />
       {banner && <p className="bg-rose-50 text-rose-800 text-xs px-4 py-2">{banner}</p>}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 pb-16">
-        {role === 'student' ? (
+        {!isStaff ? (
           <StudentArea
             tab={studentTab}
             onTabChange={setStudentTab}
@@ -226,27 +232,26 @@ export function FoundItScreen() {
             desks={desks.data ?? []}
             notifications={notifications}
             onSelectItem={setSelected}
-            onOpenReportFound={() => signedIn ? setReportFoundOpen(true) : setAuthOpen(true)}
-            onOpenLost={() => signedIn ? setLostOpen(true) : setAuthOpen(true)}
+            onOpenReportFound={() => {
+              if (signedIn) setReportFoundOpen(true);
+              else { setAuthAudience('student'); setAuthMode('sign-in'); setAuthOpen(true); }
+            }}
+            onOpenLost={() => {
+              if (signedIn) setLostOpen(true);
+              else { setAuthAudience('student'); setAuthMode('sign-in'); setAuthOpen(true); }
+            }}
             onDecideMatch={async (id, status) => { await setMatchStatus(id, status); await refresh(); }}
             onClaim={setClaimItem}
             onCreateTag={async (label, category, colour) => { await createReturnTag(label, category, colour); await refresh(); }}
             onScanTag={async (code) => { await scanReturnTag(code); await refresh(); setBanner('The owner was notified. Their contact details stayed private.'); }}
             onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
-            onSignIn={() => setAuthOpen(true)}
+            onSignIn={() => { setAuthAudience('student'); setAuthMode('sign-in'); setAuthOpen(true); }}
             onMarkAllRead={() => { void markNotificationsRead().then(refresh); }}
             onNotificationAction={(note) => {
               const item = studentItems.find((entry) => entry.id === note.relatedItemId);
               if (item) setSelected(item);
             }}
           />
-        ) : !isStaff ? (
-          <section className="bg-white rounded-3xl border border-slate-200 p-6 max-w-lg">
-            <h2 className="text-xl font-bold">Staff desk sign-in</h2>
-            <button type="button" className="mt-4 px-4 py-2 rounded-xl bg-slate-950 text-white text-sm font-bold" onClick={() => { setAuthMode(signedIn ? 'sign-up' : 'sign-in'); setAuthOpen(true); }}>
-              {signedIn ? 'Create a staff account' : 'Sign in'}
-            </button>
-          </section>
         ) : (
           <div>
             <TabBar
@@ -314,14 +319,14 @@ export function FoundItScreen() {
         onClose={() => setSelected(null)}
         onClaimItem={(item) => { setSelected(null); setClaimItem(item); }}
         user={profile}
-        timeline={(timelineQuery.data ?? []).filter((event) => event.itemId === selected?.id && (role === 'staff' || event.visibility === 'public'))}
+        timeline={(timelineQuery.data ?? []).filter((event) => event.itemId === selected?.id && (isStaff || event.visibility === 'public'))}
       />
       <ClaimModal
         item={claimItem}
         isOpen={Boolean(claimItem)}
         onClose={() => setClaimItem(null)}
         user={profile}
-        onSignIn={() => setAuthOpen(true)}
+        onSignIn={() => { setAuthAudience('student'); setAuthMode('sign-in'); setAuthOpen(true); }}
         onSubmitClaim={async (item, data) => {
           const claim = await createClaim(item.id, data.verificationAnswer, data.distinguishingDetail);
           await refresh();
@@ -379,15 +384,15 @@ export function FoundItScreen() {
         code={qr.code}
         itemTitle={qr.title}
         deskName={qr.desk}
-        onSimulateStaffScan={() => { setScanCode(qr.code); setRole('staff'); setStaffTab('scan'); }}
+        onSimulateStaffScan={isStaff ? () => { setScanCode(qr.code); setStaffTab('scan'); } : undefined}
       />
       {needsNewPassword && !authOpen && (
         <button type="button" onClick={() => setAuthOpen(true)} className="fixed bottom-4 right-4 z-40 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold shadow-lg">
           Choose a new password
         </button>
       )}
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} initialStaff={role === 'staff'} />
-      <GuideTour open={guideOpen && role === 'student'} steps={STUDENT_GUIDE} onClose={closeGuide} />
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} audience={authAudience} />
+      <GuideTour open={guideOpen && !isStaff} steps={STUDENT_GUIDE} onClose={closeGuide} />
     </div>
   );
 }
