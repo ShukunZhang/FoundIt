@@ -73,6 +73,7 @@ export function FoundItScreen() {
   const [staffTab, setStaffTab] = useState<StaffTab>('dashboard');
   const [staffDesk, setStaffDesk] = useState('All Desks');
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-up');
   const [guideOpen, setGuideOpen] = useState(() => localStorage.getItem(GUIDE_KEY) !== 'done');
   const [reportFoundOpen, setReportFoundOpen] = useState(false);
   const [lostOpen, setLostOpen] = useState(false);
@@ -259,8 +260,7 @@ export function FoundItScreen() {
         ) : !isStaff ? (
           <section className="bg-white rounded-3xl border border-slate-200 p-6 max-w-lg">
             <h2 className="text-xl font-bold">Staff desk sign-in</h2>
-            <p className="text-sm text-slate-600 mt-2">Student accounts can browse and claim. Desk tools need a staff code for SLC, DC, Dana Porter, PAC, REV, or campus admin.</p>
-            <button type="button" className="mt-4 px-4 py-2 rounded-xl bg-slate-950 text-white text-sm font-bold" onClick={() => setAuthOpen(true)}>
+            <button type="button" className="mt-4 px-4 py-2 rounded-xl bg-slate-950 text-white text-sm font-bold" onClick={() => { setAuthMode(signedIn ? 'sign-up' : 'sign-in'); setAuthOpen(true); }}>
               {signedIn ? 'Create a staff account' : 'Sign in'}
             </button>
           </section>
@@ -395,7 +395,7 @@ export function FoundItScreen() {
           Choose a new password
         </button>
       )}
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialStaff={role === 'staff'} />
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} initialStaff={role === 'staff'} />
       <GuideTour open={guideOpen && role === 'student'} steps={STUDENT_GUIDE} onClose={closeGuide} />
     </div>
   );

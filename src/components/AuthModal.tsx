@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '../context/AuthProvider';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'sign-in' | 'sign-up';
   initialStaff?: boolean;
   choosingNewPassword?: boolean;
 }
@@ -12,6 +13,7 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
+  initialMode = 'sign-up',
   initialStaff = false,
   choosingNewPassword = false,
 }) => {
@@ -27,6 +29,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setMode(initialMode);
+    setShowStaff(initialStaff);
+    setError('');
+    setMessage('');
+  }, [isOpen, initialMode, initialStaff]);
 
   if (!isOpen) return null;
 
@@ -86,21 +96,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <h2 className="text-lg font-bold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close"><X className="w-5 h-5" /></button>
         </div>
-        {choosingNewPassword ? (
-          <p className="text-xs text-slate-600">This replaces the password on your FoundIt account.</p>
-        ) : mode === 'forgot' ? (
-          <p className="text-xs text-slate-600">Enter the email on your account. The reset link only works in this browser.</p>
-        ) : (
-          <p className="text-xs text-slate-600">Browsing stays open without an account. Claiming, lost reports, and return tags need a sign-in. Staff tools need a desk code.</p>
-        )}
         {!choosingNewPassword && mode === 'sign-up' && (
           <>
             <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Full name" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
-            <input value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="Student number (optional)" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+            {!showStaff && (
+              <input value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="Student number (optional)" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+            )}
           </>
         )}
         {!choosingNewPassword && (
-          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={showStaff ? 'Staff email' : 'Email'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
         )}
         {mode !== 'forgot' && (
           <input required type="password" minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={choosingNewPassword ? 'New password' : 'Password'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
