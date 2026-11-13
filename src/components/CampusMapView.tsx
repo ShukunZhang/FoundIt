@@ -14,43 +14,56 @@ interface CampusMapViewProps {
 interface MapPin {
   id: string;
   name: string;
-  shortName: string;
+  building: string;
   latitude: number;
   longitude: number;
-  hasDesk: boolean;
   found: number;
   lost: number;
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char
+  ));
+}
+
+function samePlace(left: string, right: string): boolean {
+  const a = left.trim().toLowerCase();
+  const b = right.trim().toLowerCase();
+  return a === b || a.startsWith(b) || b.startsWith(a);
+}
+
 export const CampusMapView: React.FC<CampusMapViewProps> = ({ buildings, desks, items, reports }) => {
-  const [selectedId, setSelectedId] = useState<string | null>(buildings[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const pinsRef = useRef<L.LayerGroup | null>(null);
+  const fittedRef = useRef(false);
 
   const pins = useMemo<MapPin[]>(() => {
-    return buildings.flatMap((building) => {
-      const point = CAMPUS_COORDINATES[building.id];
+    return desks.flatMap((desk) => {
+      const point = CAMPUS_COORDINATES[desk.id];
       if (!point) return [];
-      const deskName = desks.find((entry) => entry.id === building.deskId)?.name;
-      const found = items.filter((item) => item.desk === deskName && item.status !== 'picked-up' && item.status !== 'donated').length;
-      const lost = reports.filter((report) => report.building.toLowerCase().includes(building.shortName.toLowerCase()) && report.status !== 'closed').length;
+      const building = buildings.find((entry) => entry.id === desk.id);
+      const found = items.filter((item) => item.desk === desk.name && item.status !== 'picked-up' && item.status !== 'donated').length;
+      const lost = reports.filter((report) => {
+        const place = report.building.toLowerCase();
+        return report.status !== 'closed' && (place.includes(desk.name.toLowerCase()) || (building ? place.includes(building.shortName.toLowerCase()) : false));
+      }).length;
       return [{
-        id: building.id,
-        name: building.name,
-        shortName: building.shortName,
+        id: desk.id,
+        name: desk.name,
+        building: desk.building,
         latitude: point.latitude,
         longitude: point.longitude,
-        hasDesk: Boolean(building.deskId),
         found,
         lost,
       }];
     });
   }, [buildings, desks, items, reports]);
 
-  const selected = buildings.find((building) => building.id === selectedId) ?? null;
   const selectedPin = pins.find((pin) => pin.id === selectedId) ?? null;
-  const desk = desks.find((entry) => entry.id === selected?.deskId);
+  const desk = desks.find((entry) => entry.id === selectedId);
 
   useEffect(() => {
     if (!mapElement.current || mapRef.current) return;
@@ -69,7 +82,8 @@ export const CampusMapView: React.FC<CampusMapViewProps> = ({ buildings, desks, 
   }, []);
 
   useEffect(() => {
-    if (!selectedId && pins[0]) setSelectedId(pins[0].id);
+    if (pins.length === 0) return;
+    if (!pins.some((pin) => pin.id === selectedId)) setSelectedId(pins[0].id);
   }, [pins, selectedId]);
 
   useEffect(() => {
@@ -80,52 +94,55 @@ export const CampusMapView: React.FC<CampusMapViewProps> = ({ buildings, desks, 
     const bounds: L.LatLngExpression[] = [];
     for (const pin of pins) {
       const active = pin.id === selectedId;
-      const marker = L.circleMarker([pin.latitude, pin.longitude], {
-        radius: active ? 12 : 9,
-        color: '#1c1814',
-        weight: 1,
-        fillColor: pin.hasDesk ? '#c6a15a' : '#7c6a58',
-        fillOpacity: 0.95,
+      const countLabel = `${pin.found} item${pin.found === 1 ? '' : 's'}`;
+      const marker = L.marker([pin.latitude, pin.longitude], {
+        icon: L.divIcon({
+          className: 'foundit-pin',
+          html: `<div class="foundit-pin-card${active ? ' is-active' : ''}"><strong>${escapeHtml(pin.name)}</strong><span>${countLabel}</span></div>`,
+          iconSize: [156, 46],
+          iconAnchor: [78, 46],
+        }),
+        zIndexOffset: active ? 500 : 0,
       });
-      marker.bindTooltip(`${pin.shortName} · ${pin.found} found · ${pin.lost} lost`, { direction: 'top' });
       marker.on('click', () => setSelectedId(pin.id));
       marker.addTo(group);
       bounds.push([pin.latitude, pin.longitude]);
     }
-    if (bounds.length > 0 && !selectedId) {
-      map.fitBounds(L.latLngBounds(bounds), { padding: [32, 32] });
-    }
     map.invalidateSize();
+    if (bounds.length > 0 && !fittedRef.current) {
+      map.fitBounds(L.latLngBounds(bounds), {
+        paddingTopLeft: [28, 64],
+        paddingBottomRight: [28, 36],
+        maxZoom: 15,
+      });
+      fittedRef.current = true;
+    }
   }, [pins, selectedId]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !selectedPin) return;
-    map.flyTo([selectedPin.latitude, selectedPin.longitude], 16, { duration: 0.6 });
-  }, [selectedPin]);
 
   const directions = selectedPin
     ? `https://www.openstreetmap.org/directions?to=${selectedPin.latitude}%2C${selectedPin.longitude}`
     : null;
 
   return (
-    <div data-tour="map" className="grid lg:grid-cols-[1.4fr_0.8fr] gap-4">
+    <div className="grid lg:grid-cols-[1.4fr_0.8fr] gap-4">
       <div className="bg-white rounded-3xl border border-slate-200 p-4">
         <h2 className="text-lg font-bold">Campus lost and found map</h2>
-        <p className="text-xs text-slate-500 mb-3">Gold pins are staffed desks on the University of Waterloo campus. Select a building for hours and what it is holding.</p>
+        <p className="text-xs text-slate-500 mb-3">Each pin is a staffed desk, with its name and how many items are there. Select a pin for hours.</p>
         <div ref={mapElement} className="h-[420px] w-full rounded-2xl overflow-hidden" />
       </div>
       <aside className="bg-white rounded-3xl border border-slate-200 p-5 space-y-3">
-        <h3 className="font-bold text-lg">{selected?.name ?? 'Select a building'}</h3>
+        <h3 className="font-bold text-lg">{desk?.name ?? 'Select a desk'}</h3>
         {desk ? (
           <>
-            <p className="text-sm font-semibold">{desk.name}</p>
+            {selectedPin && !samePlace(desk.name, selectedPin.building) && (
+              <p className="text-sm font-semibold">{selectedPin.building}</p>
+            )}
             <p className="text-xs text-slate-600">{desk.room}</p>
             <p className="text-xs text-slate-600">{desk.hours}</p>
             <p className="text-xs text-slate-500">{desk.phone}</p>
           </>
         ) : (
-          <p className="text-xs text-slate-600">This building does not keep a desk. Items found here should go to the nearest staffed desk.</p>
+          <p className="text-xs text-slate-600">Select a desk pin to see hours and what it is holding.</p>
         )}
         <div className="text-xs space-y-1">
           <p><strong>{selectedPin?.found ?? 0}</strong> found items at the linked desk</p>

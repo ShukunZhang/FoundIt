@@ -42,9 +42,10 @@ const DESK_FILTERS = [
 
 const DATE_FILTERS = [
   { id: 'all', label: 'Any time' },
-  { id: 'recent', label: 'Past 3 days' },
-  { id: 'medium', label: '14–29 days' },
-  { id: 'old', label: '30+ days' },
+  { id: '3d', label: 'Past 3 days' },
+  { id: 'week', label: 'Past week' },
+  { id: '2w', label: 'Past 2 weeks' },
+  { id: '30', label: '30+ days' },
 ];
 
 export const StudentHome: React.FC<StudentHomeProps> = ({
@@ -76,9 +77,10 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
       }
 
       // Date filter
-      if (selectedDate === 'recent' && item.daysAgo > 3) return false;
-      if (selectedDate === 'medium' && (item.daysAgo < 14 || item.daysAgo >= 30)) return false;
-      if (selectedDate === 'old' && item.daysAgo < 30) return false;
+      if (selectedDate === '3d' && item.daysAgo > 3) return false;
+      if (selectedDate === 'week' && item.daysAgo > 7) return false;
+      if (selectedDate === '2w' && item.daysAgo > 14) return false;
+      if (selectedDate === '30' && item.daysAgo < 30) return false;
 
       // Search query (search title, category, colour, public description, desk)
       if (searchQuery.trim()) {

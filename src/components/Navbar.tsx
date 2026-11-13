@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Bell, Map, Tag, FileCheck, LogOut, LogIn, ChevronDown } from 'lucide-react';
+import { Shield, Bell, Tag, FileCheck, LogOut, LogIn, ChevronDown, Menu, X } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface NavbarProps {
@@ -36,6 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenGuide,
 }) => {
   const [showUserMenu, setShowUserMenu] = React.useState(false);
+  const [mobileMenu, setMobileMenu] = React.useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 transition-colors">
@@ -57,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Central Role Toggle (Student vs Staff) */}
-          <div data-tour="role" className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+          <div data-tour="role" className="hidden sm:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
             <button
               onClick={() => onViewChange('student')}
               className={`px-2.5 sm:px-3.5 py-1 text-xs font-semibold rounded-lg transition-all ${
@@ -85,20 +86,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-2.5">
             {/* Student Notifications (Inbox) */}
             {onOpenGuide && (
-              <button type="button" onClick={onOpenGuide} className="px-2 py-1 text-[11px] font-bold rounded-lg text-slate-700 hover:bg-slate-100">
+              <button type="button" onClick={onOpenGuide} className="hidden sm:inline px-2 py-1 text-[11px] font-bold rounded-lg text-slate-700 hover:bg-slate-100">
                 Guide
               </button>
             )}
-            <button
-              data-tour="map"
-              onClick={onOpenMap}
-              className="relative p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
-              title="Campus map"
-              aria-label="Campus map"
-            >
-              <Map className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-
             <button
               data-tour="inbox"
               onClick={onOpenInbox}
@@ -115,7 +106,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Fake UW Sign-In / User Profile Button */}
-            <div className="relative">
+            <div className="relative hidden sm:block">
               {user.isSignedIn ? (
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
@@ -136,8 +127,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors shadow-xs"
                 >
                   <LogIn className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">Sign in with WatIAM</span>
-                  <span className="sm:hidden">Sign in</span>
+                  <span>Sign in with WatIAM</span>
                 </button>
               )}
 
@@ -219,9 +209,49 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </>
               )}
             </div>
+
+            <button
+              type="button"
+              className="sm:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100"
+              aria-label="Open menu"
+              onClick={() => setMobileMenu(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>
+      {mobileMenu && (
+        <div className="sm:hidden border-t border-slate-200 bg-white px-3 py-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-900">Menu</p>
+            <button type="button" aria-label="Close menu" onClick={() => setMobileMenu(false)} className="p-1">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => { onViewChange('student'); setMobileMenu(false); }} className={`py-2 rounded-xl text-xs font-bold ${currentView === 'student' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}>Student view</button>
+            <button type="button" onClick={() => { onViewChange('staff'); setMobileMenu(false); }} className={`py-2 rounded-xl text-xs font-bold ${currentView === 'staff' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}>Staff view</button>
+          </div>
+          <button type="button" onClick={() => { onOpenMap(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100">Campus map</button>
+          {onOpenGuide && (
+            <button type="button" onClick={() => { onOpenGuide(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100">Guide</button>
+          )}
+          {user.isSignedIn ? (
+            <div className="space-y-1">
+              <button type="button" onClick={() => { onOpenReports(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5"><FileCheck className="w-3.5 h-3.5" /> My lost reports</button>
+              <button type="button" onClick={() => { onOpenTags(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" /> Return tags</button>
+              <button type="button" onClick={() => { onOpenMyClaims(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100">My claims & codes</button>
+              <button type="button" onClick={() => { onToggleSignIn(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1.5"><LogOut className="w-3.5 h-3.5" /> Sign out</button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => { onToggleSignIn(); setMobileMenu(false); }} className="w-full py-2.5 rounded-xl bg-slate-950 text-white text-xs font-bold flex items-center justify-center gap-1.5">
+              <LogIn className="w-3.5 h-3.5 text-amber-400" />
+              Sign in with WatIAM
+            </button>
+          )}
+        </div>
+      )}
     </header>
   );
 };

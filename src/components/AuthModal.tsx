@@ -18,14 +18,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   choosingNewPassword = false,
 }) => {
   const { signIn, signUp, requestPasswordReset, updatePassword } = useAuth();
-  const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'forgot'>('sign-up');
+  const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'forgot'>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [studentId, setStudentId] = useState('');
   const [staffCode, setStaffCode] = useState('');
-  const [showStaff, setShowStaff] = useState(initialStaff);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,7 +32,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setMode(initialMode);
-    setShowStaff(initialStaff);
     setError('');
     setMessage('');
   }, [isOpen, initialMode, initialStaff]);
@@ -66,7 +64,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           email,
           password,
           studentId,
-          staffCode: showStaff ? staffCode : undefined,
+          staffCode: initialStaff ? staffCode : undefined,
         });
         if (result === 'confirm-email') {
           setMessage('Check your inbox, then sign in with the same password.');
@@ -85,9 +83,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     ? 'Choose a new password'
     : mode === 'forgot'
       ? 'Reset your password'
-      : mode === 'sign-in'
-        ? 'Sign in'
-        : 'Create your FoundIt account';
+      : initialStaff
+        ? (mode === 'sign-in' ? 'Staff sign in' : 'Create a staff account')
+        : (mode === 'sign-in' ? 'Sign in with WatIAM' : 'Create your FoundIt account');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -96,16 +94,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <h2 className="text-lg font-bold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close"><X className="w-5 h-5" /></button>
         </div>
+        {!choosingNewPassword && mode !== 'forgot' && (
+          <p className="text-xs text-slate-600">
+            {initialStaff
+              ? 'Staff accounts are separate from student WatIAM sign-in.'
+              : 'Sign in so we can notify you and hold items for you.'}
+          </p>
+        )}
         {!choosingNewPassword && mode === 'sign-up' && (
           <>
             <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Full name" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
-            {!showStaff && (
+            {!initialStaff && (
               <input value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="Student number (optional)" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
             )}
           </>
         )}
         {!choosingNewPassword && (
-          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={showStaff ? 'Staff email' : 'Email'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={initialStaff ? 'Staff email' : 'WatIAM email'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
         )}
         {mode !== 'forgot' && (
           <input required type="password" minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={choosingNewPassword ? 'New password' : 'Password'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
@@ -113,19 +118,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {choosingNewPassword && (
           <input required type="password" minLength={6} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm new password" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
         )}
-        {!choosingNewPassword && mode === 'sign-up' && (
-          <label className="flex items-center gap-2 text-xs text-slate-700">
-            <input type="checkbox" checked={showStaff} onChange={(event) => setShowStaff(event.target.checked)} />
-            I have a staff desk code
-          </label>
-        )}
-        {showStaff && mode === 'sign-up' && !choosingNewPassword && (
-          <input value={staffCode} onChange={(event) => setStaffCode(event.target.value)} placeholder="Staff code" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+        {initialStaff && mode === 'sign-up' && !choosingNewPassword && (
+          <input value={staffCode} onChange={(event) => setStaffCode(event.target.value)} placeholder="Staff desk code" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
         )}
         {error && <p className="text-xs text-rose-700">{error}</p>}
         {message && <p className="text-xs text-emerald-800">{message}</p>}
         <button disabled={busy} className="w-full py-3 rounded-xl bg-slate-950 text-white text-sm font-bold">
-          {busy ? 'Working…' : choosingNewPassword ? 'Save password' : mode === 'forgot' ? 'Send reset link' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
+          {busy ? 'Working…' : choosingNewPassword ? 'Save password' : mode === 'forgot' ? 'Send reset link' : mode === 'sign-in' ? (initialStaff ? 'Staff sign in' : 'Sign in with WatIAM') : 'Create account'}
         </button>
         {!choosingNewPassword && mode === 'sign-in' && (
           <button type="button" className="w-full text-xs font-semibold text-amber-800" onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}>

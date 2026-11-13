@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Bell, Compass, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck, Tag } from 'lucide-react';
+import { Archive, Compass, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck, Tag } from 'lucide-react';
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
@@ -25,13 +25,12 @@ import {
   uploadPhoto,
 } from './lib/db';
 import { attachClaims } from './lib/mappers';
+import { describeForMatch, rememberEmbedding } from './lib/embed';
 import { forStudentView, studentItemLabel } from './lib/studentView';
 import { getNearestDesk } from './mockData';
 import type { Category, FoundItem, NotificationItem } from './types';
 import { Navbar } from './components/Navbar';
 import { StudentHome } from './components/StudentHome';
-import { MyClaimsView } from './components/MyClaimsView';
-import { InboxView } from './components/InboxView';
 import { ItemDetailModal } from './components/ItemDetailModal';
 import { ClaimModal } from './components/ClaimModal';
 import { ReportFoundModal } from './components/ReportFoundModal';
@@ -46,21 +45,20 @@ import { AuthModal } from './components/AuthModal';
 import { GuideTour, type GuideStep } from './components/GuideTour';
 import { CampusMapView } from './components/CampusMapView';
 import { LostReportModal, type LostReportDraft } from './components/LostReportModal';
-import { MyReportsView } from './components/MyReportsView';
-import { MatchesView } from './components/MatchesView';
 import { ReturnTagsView } from './components/ReturnTagsView';
 import { StaffTimeline } from './components/StaffTimeline';
+import { MyItemsView, type MineSection } from './components/MyItemsView';
 
 const GUIDE_KEY = 'foundit.guide.v1';
 
 const STUDENT_GUIDE: GuideStep[] = [
   { selector: '[data-tour="search"]', title: 'Search every desk', body: 'Browse without an account. Filters cover category, building, and how long an item has been waiting.' },
   { selector: '[data-tour="actions"]', title: 'Lost or found', body: 'I lost something files a report. I found something logs an item for the nearest desk. Claims, codes, and return tags live under your profile after you sign in.' },
-  { selector: '[data-tour="map"]', title: 'Campus map', body: 'The map in the top right shows which buildings hold items and where the staffed desks are.' },
-  { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'Matches, WatCard alerts, approvals, and pickup reminders stay in the inbox.' },
+  { selector: '[data-tour="map"]', title: 'Campus map', body: 'The Map tab shows which desks are holding items and where to pick them up.' },
+  { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'The bell keeps matches, WatCard alerts, approvals, and pickup reminders.' },
 ];
 
-type StudentTab = 'explore' | 'reports' | 'matches' | 'tags' | 'map' | 'claims' | 'inbox';
+type StudentTab = 'explore' | 'mine' | 'tags' | 'map';
 type StaffTab = 'dashboard' | 'inventory' | 'claims' | 'log' | 'scan' | 'map' | 'timeline';
 
 export function FoundItScreen() {
@@ -70,10 +68,11 @@ export function FoundItScreen() {
   const isStaff = profile.role === 'staff' || profile.role === 'admin';
   const [role, setRole] = useState<'student' | 'staff'>('student');
   const [studentTab, setStudentTab] = useState<StudentTab>('explore');
+  const [mineSection, setMineSection] = useState<MineSection>('reports');
   const [staffTab, setStaffTab] = useState<StaffTab>('dashboard');
   const [staffDesk, setStaffDesk] = useState('All Desks');
   const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-up');
+  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const [guideOpen, setGuideOpen] = useState(() => localStorage.getItem(GUIDE_KEY) !== 'done');
   const [reportFoundOpen, setReportFoundOpen] = useState(false);
   const [lostOpen, setLostOpen] = useState(false);
@@ -87,6 +86,25 @@ export function FoundItScreen() {
   React.useEffect(() => {
     if (needsNewPassword) setAuthOpen(true);
   }, [needsNewPassword]);
+
+  React.useEffect(() => {
+    if (!signedIn && studentTab === 'mine') setStudentTab('explore');
+  }, [signedIn, studentTab]);
+
+  const openWatIam = () => {
+    setAuthMode('sign-in');
+    setAuthOpen(true);
+  };
+
+  const openMine = (section: MineSection) => {
+    setRole('student');
+    if (!profile.isSignedIn) {
+      openWatIam();
+      return;
+    }
+    setMineSection(section);
+    setStudentTab('mine');
+  };
 
   React.useEffect(() => {
     const hash = window.location.hash;
@@ -163,6 +181,19 @@ export function FoundItScreen() {
       watcardName: draft.watcardName,
       status: draft.status,
     });
+    await rememberEmbedding('found', created.id, {
+      file: draft.photoFile,
+      text: describeForMatch([
+        draft.title,
+        draft.category,
+        draft.subcategory,
+        draft.colour,
+        draft.brand,
+        draft.publicDescription,
+        draft.distinctiveFeatures,
+        draft.locationFound,
+      ]),
+    }).catch(() => undefined);
     await refresh();
     const matchedAlert = (matchQuery.data ?? []).some((match) => match.foundItemId === created.id) || false;
     return { item: created, dropOffCode: created.dropOffCode || '', matchedAlert };
@@ -186,31 +217,29 @@ export function FoundItScreen() {
         currentView={role}
         onViewChange={setRole}
         user={profile}
-        onToggleSignIn={() => { if (signedIn) void signOut(); else setAuthOpen(true); }}
+        onToggleSignIn={() => { if (signedIn) void signOut(); else openWatIam(); }}
         unreadCount={notifications.filter((note) => !note.read).length}
-        onOpenInbox={() => { setRole('student'); setStudentTab('inbox'); }}
+        onOpenInbox={() => openMine('inbox')}
         onOpenMap={() => { setRole('student'); setStudentTab('map'); }}
         activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
-        onOpenMyClaims={() => { setRole('student'); setStudentTab('claims'); }}
-        onOpenReports={() => { setRole('student'); setStudentTab('reports'); }}
+        onOpenMyClaims={() => openMine('claims')}
+        onOpenReports={() => openMine('reports')}
         onOpenTags={() => { setRole('student'); setStudentTab('tags'); }}
         selectedStaffDesk={staffDesk}
         onStaffDeskChange={setStaffDesk}
         onOpenGuide={() => setGuideOpen(true)}
       />
       {banner && <p className="bg-rose-50 text-rose-800 text-xs px-4 py-2">{banner}</p>}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 pb-16">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 pb-24 sm:pb-16">
         {role === 'student' ? (
           <div>
             <TabBar
+              dock
               tabs={[
                 ['explore', 'Search', Compass],
-                ['reports', 'Lost reports', FileCheck],
-                ['matches', 'Matches', ShieldCheck],
+                ...(signedIn ? [['mine', 'My items', FileCheck] as [string, string, typeof Compass]] : []),
                 ['tags', 'Return tags', Tag],
-                ['map', 'Map', Map],
-                ['claims', 'Claims', FileCheck],
-                ['inbox', 'Inbox', Bell],
+                ['map', 'Map', Map, 'map'],
               ]}
               active={studentTab}
               onChange={(tab) => setStudentTab(tab as StudentTab)}
@@ -219,19 +248,31 @@ export function FoundItScreen() {
               <StudentHome
                 items={studentItems}
                 onSelectItem={setSelected}
-                onOpenReportFound={() => signedIn ? setReportFoundOpen(true) : setAuthOpen(true)}
-                onOpenLost={() => signedIn ? setLostOpen(true) : setAuthOpen(true)}
-                onOpenNotifyMe={() => signedIn ? setLostOpen(true) : setAuthOpen(true)}
+                onOpenReportFound={() => signedIn ? setReportFoundOpen(true) : openWatIam()}
+                onOpenLost={() => signedIn ? setLostOpen(true) : openWatIam()}
+                onOpenNotifyMe={() => signedIn ? setLostOpen(true) : openWatIam()}
               />
             )}
-            {studentTab === 'reports' && <MyReportsView reports={reportQuery.data ?? []} matches={matchQuery.data ?? []} onOpenMatches={() => setStudentTab('matches')} />}
-            {studentTab === 'matches' && (
-              <MatchesView
+            {studentTab === 'mine' && signedIn && (
+              <MyItemsView
+                section={mineSection}
+                onSection={setMineSection}
+                reports={reportQuery.data ?? []}
                 matches={matchQuery.data ?? []}
                 items={studentItems}
-                reports={reportQuery.data ?? []}
+                user={profile}
+                notifications={notifications}
+                unreadCount={notifications.filter((note) => !note.read).length}
                 onDecide={async (id, status) => { await setMatchStatus(id, status); await refresh(); }}
                 onClaim={setClaimItem}
+                onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
+                onExplore={() => setStudentTab('explore')}
+                onSignIn={openWatIam}
+                onMarkAllAsRead={() => { void markNotificationsRead().then(refresh); }}
+                onNotificationAction={(note) => {
+                  const item = studentItems.find((entry) => entry.id === note.relatedItemId);
+                  if (item) setSelected(item);
+                }}
               />
             )}
             {studentTab === 'tags' && (
@@ -242,26 +283,13 @@ export function FoundItScreen() {
               />
             )}
             {studentTab === 'map' && <CampusMapView buildings={buildings.data ?? []} desks={desks.data ?? []} items={studentItems} reports={reportQuery.data ?? []} />}
-            {studentTab === 'claims' && (
-              <MyClaimsView items={studentItems} user={profile} onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })} onExplore={() => setStudentTab('explore')} onSignIn={() => setAuthOpen(true)} />
-            )}
-            {studentTab === 'inbox' && (
-              <InboxView
-                notifications={notifications}
-                onMarkAllAsRead={() => { void markNotificationsRead().then(refresh); }}
-                onNotificationAction={(note) => {
-                  const item = studentItems.find((entry) => entry.id === note.relatedItemId);
-                  if (item) setSelected(item);
-                }}
-                onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
-              />
-            )}
           </div>
         ) : !isStaff ? (
           <section className="bg-white rounded-3xl border border-slate-200 p-6 max-w-lg">
             <h2 className="text-xl font-bold">Staff desk sign-in</h2>
+            <p className="text-sm text-slate-600 mt-2">Staff accounts are separate from student WatIAM sign-in.</p>
             <button type="button" className="mt-4 px-4 py-2 rounded-xl bg-slate-950 text-white text-sm font-bold" onClick={() => { setAuthMode(signedIn ? 'sign-up' : 'sign-in'); setAuthOpen(true); }}>
-              {signedIn ? 'Create a staff account' : 'Sign in'}
+              {signedIn ? 'Create a staff account' : 'Staff sign in'}
             </button>
           </section>
         ) : (
@@ -338,7 +366,7 @@ export function FoundItScreen() {
         isOpen={Boolean(claimItem)}
         onClose={() => setClaimItem(null)}
         user={profile}
-        onSignIn={() => setAuthOpen(true)}
+        onSignIn={openWatIam}
         onSubmitClaim={async (item, data) => {
           const claim = await createClaim(item.id, data.verificationAnswer, data.distinguishingDetail);
           await refresh();
@@ -360,15 +388,20 @@ export function FoundItScreen() {
         initialCategory="all"
         initialSearchQuery=""
         onSaveAlert={async (alert) => {
-          await createLostReport({
-            title: alert.brandOrKeyword || `${alert.colour} ${alert.category}`,
+          const title = alert.brandOrKeyword || `${alert.colour} ${alert.category}`;
+          const description = alert.brandOrKeyword || alert.category;
+          const created = await createLostReport({
+            title,
             category: alert.category as Category,
             colour: alert.colour || 'Unknown',
             brand: alert.brandOrKeyword,
-            description: alert.brandOrKeyword || alert.category,
+            description,
             building: alert.locationLost || 'Campus',
             lostAt: new Date(alert.dateLost).toISOString(),
           });
+          await rememberEmbedding('lost', created.id, {
+            text: describeForMatch([title, alert.colour, alert.category, alert.brandOrKeyword, alert.locationLost, description]),
+          }).catch(() => undefined);
           await refresh();
         }}
       />
@@ -377,9 +410,24 @@ export function FoundItScreen() {
         onClose={() => setLostOpen(false)}
         onSubmit={async (draft: LostReportDraft) => {
           const imagePath = draft.photo ? await uploadPhoto(draft.photo, 'private-photos') : undefined;
-          await createLostReport({ ...draft, lostAt: new Date(draft.lostAt).toISOString(), imagePath });
+          const created = await createLostReport({ ...draft, lostAt: new Date(draft.lostAt).toISOString(), imagePath });
+          await rememberEmbedding('lost', created.id, {
+            file: draft.photo,
+            text: describeForMatch([
+              draft.title,
+              draft.category,
+              draft.subcategory,
+              draft.colour,
+              draft.brand,
+              draft.description,
+              draft.distinctiveFeatures,
+              draft.building,
+              draft.locationDetail,
+            ]),
+          }).catch(() => undefined);
           await refresh();
-          setStudentTab('reports');
+          setMineSection('reports');
+          setStudentTab('mine');
         }}
       />
       <QRCodeModal
@@ -391,11 +439,11 @@ export function FoundItScreen() {
         onSimulateStaffScan={() => { setScanCode(qr.code); setRole('staff'); setStaffTab('scan'); }}
       />
       {needsNewPassword && !authOpen && (
-        <button type="button" onClick={() => setAuthOpen(true)} className="fixed bottom-4 right-4 z-40 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold shadow-lg">
+        <button type="button" onClick={() => setAuthOpen(true)} className="fixed bottom-20 right-4 z-40 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold shadow-lg sm:bottom-4">
           Choose a new password
         </button>
       )}
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} initialStaff={role === 'staff'} />
+      <AuthModal key={`${authMode}-${role}`} isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} initialStaff={role === 'staff'} />
       <GuideTour open={guideOpen && role === 'student'} steps={STUDENT_GUIDE} onClose={closeGuide} />
     </div>
   );
@@ -406,23 +454,29 @@ function TabBar({
   active,
   onChange,
   dark = false,
+  dock = false,
 }: {
-  tabs: Array<[string, string, React.ComponentType<{ className?: string }>]>;
+  tabs: Array<[string, string, React.ComponentType<{ className?: string }>, string?]>;
   active: string;
   onChange: (tab: string) => void;
   dark?: boolean;
+  dock?: boolean;
 }) {
+  const columns = tabs.length === 4 ? 'grid-cols-4' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-7';
   return (
-    <div className="grid grid-cols-7 gap-1 mb-5 w-full p-1.5 bg-white rounded-2xl border border-slate-200">
-      {tabs.map(([id, label, Icon]) => (
+    <div className={dock
+      ? `fixed bottom-0 inset-x-0 z-40 grid ${columns} border-t border-slate-200 bg-white px-1 pt-1.5 pb-[max(0.45rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mb-5 sm:rounded-2xl sm:border sm:p-1.5`
+      : `grid ${columns} gap-1 mb-5 w-full p-1.5 bg-white rounded-2xl border border-slate-200`}>
+      {tabs.map(([id, label, Icon, tour]) => (
         <button
           key={id}
           type="button"
+          data-tour={tour}
           onClick={() => onChange(id)}
-          className={`min-w-0 py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 text-center ${active === id ? (dark ? 'bg-slate-950 text-white' : 'bg-amber-400 text-slate-950') : 'text-slate-600'}`}
+          className={`min-w-0 py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 text-center leading-tight ${active === id ? (dark ? 'bg-slate-950 text-white' : 'bg-amber-400 text-slate-950') : 'text-slate-600'}`}
         >
-          <Icon className="w-3.5 h-3.5 shrink-0 hidden sm:block" />
-          <span className="truncate">{label}</span>
+          <Icon className={`w-4 h-4 shrink-0 ${dock ? '' : 'hidden sm:block'}`} />
+          <span className={dock ? '' : 'truncate'}>{label}</span>
         </button>
       ))}
     </div>

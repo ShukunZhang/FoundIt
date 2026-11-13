@@ -2,7 +2,7 @@ import React from 'react';
 import { X, MapPin, Clock, Calendar, ShieldCheck, Lock, AlertTriangle, ArrowRight } from 'lucide-react';
 import { FoundItem, TimelineEvent, UserProfile } from '../types';
 import { CAMPUS_DESKS, getDaysUntilDeskTransfer, getRetentionPolicyDays } from '../mockData';
-import { studentItemLabel } from '../lib/studentView';
+import { formatHistoryLine, studentItemLabel } from '../lib/studentView';
 import { ItemPhotoPlaceholder } from './CategoryIcon';
 
 interface ItemDetailModalProps {
@@ -33,7 +33,9 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     phone: '519-888-4567',
   };
 
+  const deskWindowDays = 14;
   const daysUntilDeskMove = getDaysUntilDeskTransfer(item.daysAgo, item.valuable);
+  const daysRemainingRatio = Math.min(100, Math.max(0, (daysUntilDeskMove / deskWindowDays) * 100));
   const totalRetentionDays = getRetentionPolicyDays(item.valuable);
   const daysUntilDonation = Math.max(0, totalRetentionDays - item.daysAgo);
 
@@ -146,12 +148,12 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               </span>
             </div>
 
-            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden" aria-hidden="true">
               <div
                 className={`h-full rounded-full ${
-                  item.daysAgo < 14 ? 'bg-emerald-500' : item.daysAgo < 30 ? 'bg-amber-500' : 'bg-rose-500'
+                  daysUntilDeskMove > 7 ? 'bg-emerald-500' : daysUntilDeskMove > 0 ? 'bg-amber-500' : 'bg-rose-500'
                 }`}
-                style={{ width: `${Math.min(100, (item.daysAgo / 30) * 100)}%` }}
+                style={{ width: `${daysRemainingRatio}%` }}
               />
             </div>
 
@@ -169,8 +171,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             <ol className="space-y-2">
               {timeline.map((event) => (
                 <li key={event.id} className="text-xs bg-white border border-slate-200 rounded-xl p-2">
-                  <span className="font-bold">{event.eventType}</span>
-                  <span className="text-slate-500"> · {new Date(event.createdAt).toLocaleString()}</span>
+                  <span className="font-bold">{formatHistoryLine(event.eventType, event.createdAt)}</span>
                   <p className="text-slate-700 mt-0.5">{event.message}</p>
                 </li>
               ))}
@@ -178,11 +179,11 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           )}
 
           {/* Contested / Reserved status note */}
-          {isReserved && (
+          {isReserved && !item.claim && (
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold">Item is currently reserved</p>
+                <p className="font-bold">Reserved by another student</p>
                 <p className="text-[11px] text-amber-800">
                   Another student has placed a hold. If this is genuinely yours, you can submit a contested claim for staff review.
                 </p>
@@ -213,14 +214,14 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   onClaimItem(item);
                 }}
                 className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] ${
-                  isReserved
+                  isReserved && !item.claim
                     ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
                     : item.valuable
                     ? 'bg-slate-950 text-white hover:bg-slate-800'
                     : 'bg-amber-400 text-slate-950 hover:bg-amber-300'
                 }`}
               >
-                <span>{isReserved ? 'Contest This Item (Submit Proof)' : 'This is mine (Claim Item)'}</span>
+                <span>{isReserved && !item.claim ? 'Contest claim' : 'This is mine (Claim Item)'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

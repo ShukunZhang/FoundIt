@@ -28,3 +28,45 @@ body {
 .animate-fade-in {
   animation: fade-in 0.28s ease;
 }
+
+.foundit-pin {
+  background: transparent;
+  border: none;
+}
+
+.foundit-pin-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 156px;
+  min-height: 46px;
+  padding: 4px 8px;
+  border: 1px solid #1c1814;
+  border-radius: 12px;
+  background: #fff;
+  color: #1c1814;
+  text-align: center;
+  line-height: 1.2;
+  box-shadow: 0 2px 8px rgba(28, 24, 20, 0.16);
+}
+
+.foundit-pin-card strong {
+  font-size: 11px;
+}
+
+.foundit-pin-card span {
+  font-size: 10px;
+  color: #7c6a58;
+}
+
+.foundit-pin-card.is-active {
+  background: #1c1814;
+  color: #fff;
+  border-color: #c6a15a;
+  outline: 2px solid #c6a15a;
+}
+
+.foundit-pin-card.is-active span {
+  color: #e2c48a;
+}
