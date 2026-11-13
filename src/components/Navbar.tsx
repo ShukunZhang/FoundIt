@@ -230,6 +230,24 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                       <button
                         onClick={() => {
+                          onOpenInbox();
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 font-medium flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Bell className="w-3.5 h-3.5" />
+                          <span>Notifications</span>
+                        </span>
+                        {unreadCount > 0 && (
+                          <span className="text-[10px] bg-amber-200 px-1.5 py-0.5 rounded text-slate-800">
+                            {unreadCount} new
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
                           onToggleSignIn();
                           setShowUserMenu(false);
                         }}
