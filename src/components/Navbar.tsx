@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Bell, Map, Tag, FileCheck, LogOut, LogIn, ChevronDown } from 'lucide-react';
+import { Shield, Bell, Map, Tag, FileCheck, LogOut, LogIn, ChevronDown, Sparkles } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface NavbarProps {
@@ -7,12 +7,15 @@ interface NavbarProps {
   onViewChange: (view: 'student' | 'staff') => void;
   user: UserProfile;
   onToggleSignIn: () => void;
+  onGoHome: () => void;
   unreadCount: number;
   onOpenInbox: () => void;
   onOpenMap: () => void;
   activeClaimsCount: number;
+  pendingMatchCount: number;
   onOpenMyClaims: () => void;
   onOpenReports: () => void;
+  onOpenMatches: () => void;
   onOpenTags: () => void;
   selectedStaffDesk?: string;
   onStaffDeskChange?: (desk: string) => void;
@@ -24,12 +27,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   onViewChange,
   user,
   onToggleSignIn,
+  onGoHome,
   unreadCount,
   onOpenInbox,
   onOpenMap,
   activeClaimsCount,
+  pendingMatchCount,
   onOpenMyClaims,
   onOpenReports,
+  onOpenMatches,
   onOpenTags,
   selectedStaffDesk,
   onStaffDeskChange,
@@ -42,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6">
         <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
           {/* Brand Wordmark */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          <button type="button" onClick={onGoHome} className="flex items-center gap-2.5 shrink-0 text-left" aria-label="FoundIt home">
             <div className="w-8 h-8 rounded-xl bg-slate-950 flex items-center justify-center shadow-xs">
               <span className="font-black text-amber-400 text-sm tracking-tight">F</span>
             </div>
@@ -54,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Central Role Toggle (Student vs Staff) */}
           <div data-tour="role" className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
@@ -178,6 +184,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <FileCheck className="w-3.5 h-3.5" />
                         <span>My lost reports</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          onOpenMatches();
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 font-medium flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Matches</span>
+                        </span>
+                        {pendingMatchCount > 0 && (
+                          <span className="text-[10px] bg-amber-200 px-1.5 py-0.5 rounded text-slate-800">
+                            {pendingMatchCount} new
+                          </span>
+                        )}
                       </button>
 
                       <button

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Bell, Compass, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck, Tag } from 'lucide-react';
+import { Archive, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck } from 'lucide-react';
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
@@ -29,9 +29,8 @@ import { forStudentView, studentItemLabel } from './lib/studentView';
 import { getNearestDesk } from './mockData';
 import type { Category, FoundItem, NotificationItem } from './types';
 import { Navbar } from './components/Navbar';
-import { StudentHome } from './components/StudentHome';
-import { MyClaimsView } from './components/MyClaimsView';
-import { InboxView } from './components/InboxView';
+import { TabBar } from './components/TabBar';
+import { StudentArea, type StudentTab } from './components/StudentArea';
 import { ItemDetailModal } from './components/ItemDetailModal';
 import { ClaimModal } from './components/ClaimModal';
 import { ReportFoundModal } from './components/ReportFoundModal';
@@ -46,21 +45,17 @@ import { AuthModal } from './components/AuthModal';
 import { GuideTour, type GuideStep } from './components/GuideTour';
 import { CampusMapView } from './components/CampusMapView';
 import { LostReportModal, type LostReportDraft } from './components/LostReportModal';
-import { MyReportsView } from './components/MyReportsView';
-import { MatchesView } from './components/MatchesView';
-import { ReturnTagsView } from './components/ReturnTagsView';
 import { StaffTimeline } from './components/StaffTimeline';
 
 const GUIDE_KEY = 'foundit.guide.v1';
 
 const STUDENT_GUIDE: GuideStep[] = [
   { selector: '[data-tour="search"]', title: 'Search every desk', body: 'Browse without an account. Filters cover category, building, and how long an item has been waiting.' },
-  { selector: '[data-tour="actions"]', title: 'Lost or found', body: 'I lost something files a report. I found something logs an item for the nearest desk. Claims, codes, and return tags live under your profile after you sign in.' },
+  { selector: '[data-tour="actions"]', title: 'Lost or found', body: 'I lost something files a report. I found something logs an item for the nearest desk. Lost reports, matches, return tags, and claims live under your profile after you sign in.' },
   { selector: '[data-tour="map"]', title: 'Campus map', body: 'The map in the top right shows which buildings hold items and where the staffed desks are.' },
   { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'Matches, WatCard alerts, approvals, and pickup reminders stay in the inbox.' },
 ];
 
-type StudentTab = 'explore' | 'reports' | 'matches' | 'tags' | 'map' | 'claims' | 'inbox';
 type StaffTab = 'dashboard' | 'inventory' | 'claims' | 'log' | 'scan' | 'map' | 'timeline';
 
 export function FoundItScreen() {
@@ -186,13 +181,29 @@ export function FoundItScreen() {
         currentView={role}
         onViewChange={setRole}
         user={profile}
-        onToggleSignIn={() => { if (signedIn) void signOut(); else setAuthOpen(true); }}
+        onToggleSignIn={() => {
+          if (signedIn) {
+            void signOut();
+            setStudentTab('explore');
+          } else {
+            setAuthOpen(true);
+          }
+        }}
+        onGoHome={() => {
+          if (role === 'staff' && isStaff) setStaffTab('dashboard');
+          else {
+            setRole('student');
+            setStudentTab('explore');
+          }
+        }}
         unreadCount={notifications.filter((note) => !note.read).length}
         onOpenInbox={() => { setRole('student'); setStudentTab('inbox'); }}
         onOpenMap={() => { setRole('student'); setStudentTab('map'); }}
         activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
+        pendingMatchCount={(matchQuery.data ?? []).filter((match) => match.status === 'pending').length}
         onOpenMyClaims={() => { setRole('student'); setStudentTab('claims'); }}
         onOpenReports={() => { setRole('student'); setStudentTab('reports'); }}
+        onOpenMatches={() => { setRole('student'); setStudentTab('matches'); }}
         onOpenTags={() => { setRole('student'); setStudentTab('tags'); }}
         selectedStaffDesk={staffDesk}
         onStaffDeskChange={setStaffDesk}
@@ -201,62 +212,33 @@ export function FoundItScreen() {
       {banner && <p className="bg-rose-50 text-rose-800 text-xs px-4 py-2">{banner}</p>}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 pb-16">
         {role === 'student' ? (
-          <div>
-            <TabBar
-              tabs={[
-                ['explore', 'Search', Compass],
-                ['reports', 'Lost reports', FileCheck],
-                ['matches', 'Matches', ShieldCheck],
-                ['tags', 'Return tags', Tag],
-                ['map', 'Map', Map],
-                ['claims', 'Claims', FileCheck],
-                ['inbox', 'Inbox', Bell],
-              ]}
-              active={studentTab}
-              onChange={(tab) => setStudentTab(tab as StudentTab)}
-            />
-            {studentTab === 'explore' && (
-              <StudentHome
-                items={studentItems}
-                onSelectItem={setSelected}
-                onOpenReportFound={() => signedIn ? setReportFoundOpen(true) : setAuthOpen(true)}
-                onOpenLost={() => signedIn ? setLostOpen(true) : setAuthOpen(true)}
-                onOpenNotifyMe={() => signedIn ? setLostOpen(true) : setAuthOpen(true)}
-              />
-            )}
-            {studentTab === 'reports' && <MyReportsView reports={reportQuery.data ?? []} matches={matchQuery.data ?? []} onOpenMatches={() => setStudentTab('matches')} />}
-            {studentTab === 'matches' && (
-              <MatchesView
-                matches={matchQuery.data ?? []}
-                items={studentItems}
-                reports={reportQuery.data ?? []}
-                onDecide={async (id, status) => { await setMatchStatus(id, status); await refresh(); }}
-                onClaim={setClaimItem}
-              />
-            )}
-            {studentTab === 'tags' && (
-              <ReturnTagsView
-                tags={tagQuery.data ?? []}
-                onCreate={async (label, category, colour) => { await createReturnTag(label, category, colour); await refresh(); }}
-                onSimulateScan={async (code) => { await scanReturnTag(code); await refresh(); setBanner('The owner was notified. Their contact details stayed private.'); }}
-              />
-            )}
-            {studentTab === 'map' && <CampusMapView buildings={buildings.data ?? []} desks={desks.data ?? []} items={studentItems} reports={reportQuery.data ?? []} />}
-            {studentTab === 'claims' && (
-              <MyClaimsView items={studentItems} user={profile} onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })} onExplore={() => setStudentTab('explore')} onSignIn={() => setAuthOpen(true)} />
-            )}
-            {studentTab === 'inbox' && (
-              <InboxView
-                notifications={notifications}
-                onMarkAllAsRead={() => { void markNotificationsRead().then(refresh); }}
-                onNotificationAction={(note) => {
-                  const item = studentItems.find((entry) => entry.id === note.relatedItemId);
-                  if (item) setSelected(item);
-                }}
-                onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
-              />
-            )}
-          </div>
+          <StudentArea
+            tab={studentTab}
+            onTabChange={setStudentTab}
+            signedIn={signedIn}
+            items={studentItems}
+            user={profile}
+            reports={reportQuery.data ?? []}
+            matches={matchQuery.data ?? []}
+            tags={tagQuery.data ?? []}
+            buildings={buildings.data ?? []}
+            desks={desks.data ?? []}
+            notifications={notifications}
+            onSelectItem={setSelected}
+            onOpenReportFound={() => signedIn ? setReportFoundOpen(true) : setAuthOpen(true)}
+            onOpenLost={() => signedIn ? setLostOpen(true) : setAuthOpen(true)}
+            onDecideMatch={async (id, status) => { await setMatchStatus(id, status); await refresh(); }}
+            onClaim={setClaimItem}
+            onCreateTag={async (label, category, colour) => { await createReturnTag(label, category, colour); await refresh(); }}
+            onScanTag={async (code) => { await scanReturnTag(code); await refresh(); setBanner('The owner was notified. Their contact details stayed private.'); }}
+            onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
+            onSignIn={() => setAuthOpen(true)}
+            onMarkAllRead={() => { void markNotificationsRead().then(refresh); }}
+            onNotificationAction={(note) => {
+              const item = studentItems.find((entry) => entry.id === note.relatedItemId);
+              if (item) setSelected(item);
+            }}
+          />
         ) : !isStaff ? (
           <section className="bg-white rounded-3xl border border-slate-200 p-6 max-w-lg">
             <h2 className="text-xl font-bold">Staff desk sign-in</h2>
@@ -401,30 +383,3 @@ export function FoundItScreen() {
   );
 }
 
-function TabBar({
-  tabs,
-  active,
-  onChange,
-  dark = false,
-}: {
-  tabs: Array<[string, string, React.ComponentType<{ className?: string }>]>;
-  active: string;
-  onChange: (tab: string) => void;
-  dark?: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-7 gap-1 mb-5 w-full p-1.5 bg-white rounded-2xl border border-slate-200">
-      {tabs.map(([id, label, Icon]) => (
-        <button
-          key={id}
-          type="button"
-          onClick={() => onChange(id)}
-          className={`min-w-0 py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 text-center ${active === id ? (dark ? 'bg-slate-950 text-white' : 'bg-amber-400 text-slate-950') : 'text-slate-600'}`}
-        >
-          <Icon className="w-3.5 h-3.5 shrink-0 hidden sm:block" />
-          <span className="truncate">{label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
