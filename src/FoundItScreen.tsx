@@ -377,7 +377,15 @@ export function FoundItScreen() {
         onClose={() => setLostOpen(false)}
         onSubmit={async (draft: LostReportDraft) => {
           const imagePath = draft.photo ? await uploadPhoto(draft.photo, 'private-photos') : undefined;
-          await createLostReport({ ...draft, lostAt: new Date(draft.lostAt).toISOString(), imagePath });
+          const parsedLostAt = draft.lostAt ? new Date(draft.lostAt) : new Date();
+          await createLostReport({
+            ...draft,
+            colour: draft.colour.trim(),
+            description: draft.description.trim() || draft.title.trim(),
+            building: draft.building.trim(),
+            lostAt: Number.isNaN(parsedLostAt.getTime()) ? new Date().toISOString() : parsedLostAt.toISOString(),
+            imagePath,
+          });
           await refresh();
           setStudentTab('reports');
         }}
