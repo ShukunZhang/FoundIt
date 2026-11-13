@@ -66,13 +66,13 @@ export function FoundItScreen() {
   const queryClient = useQueryClient();
   const signedIn = profile.isSignedIn;
   const isStaff = profile.role === 'staff' || profile.role === 'admin';
-  const [role, setRole] = useState<'student' | 'staff'>('student');
   const [studentTab, setStudentTab] = useState<StudentTab>('explore');
   const [mineSection, setMineSection] = useState<MineSection>('reports');
   const [staffTab, setStaffTab] = useState<StaffTab>('dashboard');
   const [staffDesk, setStaffDesk] = useState('All Desks');
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
+  const [authAudience, setAuthAudience] = useState<'student' | 'staff'>('student');
   const [guideOpen, setGuideOpen] = useState(() => localStorage.getItem(GUIDE_KEY) !== 'done');
   const [reportFoundOpen, setReportFoundOpen] = useState(false);
   const [lostOpen, setLostOpen] = useState(false);
@@ -92,12 +92,18 @@ export function FoundItScreen() {
   }, [signedIn, studentTab]);
 
   const openWatIam = () => {
+    setAuthAudience('student');
+    setAuthMode('sign-in');
+    setAuthOpen(true);
+  };
+
+  const openStaffAuth = () => {
+    setAuthAudience('staff');
     setAuthMode('sign-in');
     setAuthOpen(true);
   };
 
   const openMine = (section: MineSection) => {
-    setRole('student');
     if (!profile.isSignedIn) {
       openWatIam();
       return;
@@ -218,37 +224,37 @@ export function FoundItScreen() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar
-        currentView={role}
-        onViewChange={setRole}
+        currentView={isStaff ? 'staff' : 'student'}
         user={profile}
         onToggleSignIn={() => {
           if (signedIn) {
             void signOut();
-            setRole('student');
             setStudentTab('explore');
           } else {
             openWatIam();
           }
         }}
         onGoHome={() => {
-          if (role === 'student') setStudentTab('explore');
+          if (isStaff) setStaffTab('dashboard');
+          else setStudentTab('explore');
         }}
         unreadCount={notifications.filter((note) => !note.read).length}
         onOpenInbox={() => openMine('inbox')}
-        onOpenMap={() => { setRole('student'); setStudentTab('map'); }}
+        onOpenMap={() => setStudentTab('map')}
         activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
         pendingMatchCount={signedIn && profile.id ? (matchQuery.data ?? []).filter((match) => match.status === 'pending').length : 0}
         onOpenMyClaims={() => openMine('claims')}
         onOpenReports={() => openMine('reports')}
         onOpenMatches={() => openMine('matches')}
-        onOpenTags={() => { setRole('student'); setStudentTab('tags'); }}
+        onOpenTags={() => setStudentTab('tags')}
+        onOpenStaffSignIn={openStaffAuth}
         selectedStaffDesk={staffDesk}
         onStaffDeskChange={setStaffDesk}
         onOpenGuide={() => setGuideOpen(true)}
       />
       {banner && <p className="bg-rose-50 text-rose-800 text-xs px-4 py-2">{banner}</p>}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 pb-24 sm:pb-16">
-        {role === 'student' ? (
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 ${isStaff ? 'pb-16' : 'pb-24 sm:pb-16'}`}>
+        {!isStaff ? (
           <div>
             <TabBar
               dock
@@ -301,14 +307,6 @@ export function FoundItScreen() {
             )}
             {studentTab === 'map' && <CampusMapView buildings={buildings.data ?? []} desks={desks.data ?? []} items={studentItems} reports={reportQuery.data ?? []} />}
           </div>
-        ) : !isStaff ? (
-          <section className="bg-white rounded-3xl border border-slate-200 p-6 max-w-lg">
-            <h2 className="text-xl font-bold">Staff desk sign-in</h2>
-            <p className="text-sm text-slate-600 mt-2">Staff accounts are separate from student WatIAM sign-in.</p>
-            <button type="button" className="mt-4 px-4 py-2 rounded-xl bg-slate-950 text-white text-sm font-bold" onClick={() => { setAuthMode(signedIn ? 'sign-up' : 'sign-in'); setAuthOpen(true); }}>
-              {signedIn ? 'Create a staff account' : 'Staff sign in'}
-            </button>
-          </section>
         ) : (
           <div>
             <TabBar
@@ -376,7 +374,7 @@ export function FoundItScreen() {
         onClose={() => setSelected(null)}
         onClaimItem={(item) => { setSelected(null); setClaimItem(item); }}
         user={profile}
-        timeline={(timelineQuery.data ?? []).filter((event) => event.itemId === selected?.id && (role === 'staff' || event.visibility === 'public'))}
+        timeline={(timelineQuery.data ?? []).filter((event) => event.itemId === selected?.id && (isStaff || event.visibility === 'public'))}
       />
       <ClaimModal
         item={claimItem}
@@ -464,15 +462,15 @@ export function FoundItScreen() {
         code={qr.code}
         itemTitle={qr.title}
         deskName={qr.desk}
-        onSimulateStaffScan={() => { setScanCode(qr.code); setRole('staff'); setStaffTab('scan'); }}
+        onSimulateStaffScan={isStaff ? () => { setScanCode(qr.code); setStaffTab('scan'); } : undefined}
       />
       {needsNewPassword && !authOpen && (
         <button type="button" onClick={() => setAuthOpen(true)} className="fixed bottom-20 right-4 z-40 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold shadow-lg sm:bottom-4">
           Choose a new password
         </button>
       )}
-      <AuthModal key={`${authMode}-${role}`} isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} initialStaff={role === 'staff'} />
-      <GuideTour open={guideOpen && role === 'student'} steps={STUDENT_GUIDE} onClose={closeGuide} />
+      <AuthModal key={`${authMode}-${authAudience}`} isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} audience={authAudience} />
+      <GuideTour open={guideOpen && !isStaff} steps={STUDENT_GUIDE} onClose={closeGuide} />
     </div>
   );
 }
