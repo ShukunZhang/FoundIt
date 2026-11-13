@@ -99,7 +99,11 @@ export function FoundItScreen() {
   const claimQuery = useQuery({ queryKey: ['claims'], queryFn: fetchClaims, enabled: signedIn });
   const noteQuery = useQuery({ queryKey: ['notes'], queryFn: fetchNotifications, enabled: signedIn });
   const reportQuery = useQuery({ queryKey: ['reports'], queryFn: fetchReports, enabled: signedIn });
-  const matchQuery = useQuery({ queryKey: ['matches'], queryFn: fetchMatches, enabled: signedIn });
+  const matchQuery = useQuery({
+    queryKey: ['matches', profile.id],
+    queryFn: fetchMatches,
+    enabled: signedIn && Boolean(profile.id),
+  });
   const tagQuery = useQuery({ queryKey: ['tags'], queryFn: fetchTags, enabled: signedIn });
   const timelineQuery = useQuery({ queryKey: ['timeline'], queryFn: fetchTimeline, enabled: configured });
 
@@ -184,6 +188,7 @@ export function FoundItScreen() {
         onToggleSignIn={() => {
           if (signedIn) {
             void signOut();
+            setRole('student');
             setStudentTab('explore');
           } else {
             setAuthOpen(true);
@@ -196,7 +201,7 @@ export function FoundItScreen() {
         onOpenInbox={() => { setRole('student'); setStudentTab('inbox'); }}
         onOpenMap={() => { setRole('student'); setStudentTab('map'); }}
         activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
-        pendingMatchCount={(matchQuery.data ?? []).filter((match) => match.status === 'pending').length}
+        pendingMatchCount={signedIn && profile.id ? (matchQuery.data ?? []).filter((match) => match.status === 'pending').length : 0}
         onOpenMyClaims={() => { setRole('student'); setStudentTab('claims'); }}
         onOpenReports={() => { setRole('student'); setStudentTab('reports'); }}
         onOpenMatches={() => { setRole('student'); setStudentTab('matches'); }}
