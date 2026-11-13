@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Compass, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck, Tag } from 'lucide-react';
+import { Archive, Compass, FileCheck, LayoutDashboard, Map, PlusCircle, QrCode, Scan, ShieldCheck, Tag } from 'lucide-react';
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
@@ -48,6 +48,8 @@ import { LostReportModal, type LostReportDraft } from './components/LostReportMo
 import { ReturnTagsView } from './components/ReturnTagsView';
 import { StaffTimeline } from './components/StaffTimeline';
 import { MyItemsView, type MineSection } from './components/MyItemsView';
+import { PickupCodesView } from './components/PickupCodesView';
+import { useClaimAlerts } from './hooks/useClaimAlerts';
 
 const GUIDE_KEY = 'foundit.guide.v1';
 
@@ -58,7 +60,7 @@ const STUDENT_GUIDE: GuideStep[] = [
   { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'The bell keeps matches, WatCard alerts, approvals, and pickup reminders.' },
 ];
 
-type StudentTab = 'explore' | 'mine' | 'tags' | 'map';
+type StudentTab = 'explore' | 'mine' | 'codes' | 'tags' | 'map';
 type StaffTab = 'dashboard' | 'inventory' | 'claims' | 'log' | 'scan' | 'map' | 'timeline';
 
 export function FoundItScreen() {
@@ -82,13 +84,14 @@ export function FoundItScreen() {
   const [qr, setQr] = useState({ open: false, code: '', title: '', desk: '' });
   const [scanCode, setScanCode] = useState('');
   const [banner, setBanner] = useState('');
+  const [pickupNotice, setPickupNotice] = useState<{ code: string; message: string } | null>(null);
 
   React.useEffect(() => {
     if (needsNewPassword) setAuthOpen(true);
   }, [needsNewPassword]);
 
   React.useEffect(() => {
-    if (!signedIn && studentTab === 'mine') setStudentTab('explore');
+    if (!signedIn && (studentTab === 'mine' || studentTab === 'codes')) setStudentTab('explore');
   }, [signedIn, studentTab]);
 
   const openWatIam = () => {
@@ -135,6 +138,7 @@ export function FoundItScreen() {
   });
   const tagQuery = useQuery({ queryKey: ['tags'], queryFn: fetchTags, enabled: signedIn });
   const timelineQuery = useQuery({ queryKey: ['timeline'], queryFn: fetchTimeline, enabled: configured });
+  useClaimAlerts(signedIn ? profile.id : undefined, setPickupNotice);
 
   const refresh = async () => {
     await queryClient.invalidateQueries();
@@ -243,7 +247,7 @@ export function FoundItScreen() {
         onOpenMap={() => setStudentTab('map')}
         activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
         pendingMatchCount={signedIn && profile.id ? (matchQuery.data ?? []).filter((match) => match.status === 'pending').length : 0}
-        onOpenMyClaims={() => openMine('claims')}
+        onOpenMyClaims={() => setStudentTab('codes')}
         onOpenReports={() => openMine('reports')}
         onOpenMatches={() => openMine('matches')}
         onOpenTags={() => setStudentTab('tags')}
@@ -253,6 +257,19 @@ export function FoundItScreen() {
         onOpenGuide={() => setGuideOpen(true)}
       />
       {banner && <p className="bg-rose-50 text-rose-800 text-xs px-4 py-2">{banner}</p>}
+      {pickupNotice && (
+        <button
+          type="button"
+          onClick={() => {
+            if (!isStaff) setStudentTab('codes');
+            setQr({ open: true, code: pickupNotice.code, title: 'Your item', desk: 'the desk' });
+            setPickupNotice(null);
+          }}
+          className="bg-emerald-50 text-emerald-900 text-xs px-4 py-2 text-left font-semibold"
+        >
+          {pickupNotice.message} Tap to show the code.
+        </button>
+      )}
       <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 ${isStaff ? 'pb-16' : 'pb-24 sm:pb-16'}`}>
         {!isStaff ? (
           <div>
@@ -261,6 +278,7 @@ export function FoundItScreen() {
               tabs={[
                 ['explore', 'Search', Compass],
                 ...(signedIn ? [['mine', 'My items', FileCheck] as [string, string, typeof Compass]] : []),
+                ...(signedIn ? [['codes', 'Codes', QrCode] as [string, string, typeof Compass]] : []),
                 ['tags', 'Return tags', Tag],
                 ['map', 'Map', Map, 'map'],
               ]}
@@ -293,9 +311,23 @@ export function FoundItScreen() {
                 onSignIn={openWatIam}
                 onMarkAllAsRead={() => { void markNotificationsRead().then(refresh); }}
                 onNotificationAction={(note) => {
+                  if (note.pickupCode) {
+                    const item = studentItems.find((entry) => entry.id === note.relatedItemId);
+                    setQr({ open: true, code: note.pickupCode, title: item ? studentItemLabel(item) : note.title, desk: item?.desk ?? 'the desk' });
+                    setStudentTab('codes');
+                    return;
+                  }
                   const item = studentItems.find((entry) => entry.id === note.relatedItemId);
                   if (item) setSelected(item);
                 }}
+              />
+            )}
+            {studentTab === 'codes' && signedIn && (
+              <PickupCodesView
+                claims={claimQuery.data ?? []}
+                items={studentItems}
+                userId={profile.id ?? ''}
+                onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
               />
             )}
             {studentTab === 'tags' && (
@@ -488,7 +520,7 @@ function TabBar({
   dark?: boolean;
   dock?: boolean;
 }) {
-  const columns = tabs.length === 4 ? 'grid-cols-4' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-7';
+  const columns = tabs.length === 5 ? 'grid-cols-5' : tabs.length === 4 ? 'grid-cols-4' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-7';
   return (
     <div className={dock
       ? `fixed bottom-0 inset-x-0 z-40 grid ${columns} border-t border-slate-200 bg-white px-1 pt-1.5 pb-[max(0.45rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mb-5 sm:rounded-2xl sm:border sm:p-1.5`

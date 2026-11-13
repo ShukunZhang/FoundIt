@@ -233,8 +233,15 @@ export async function createClaim(itemId: string, verificationAnswer?: string, d
 
 export async function reviewClaim(claimId: string, status: 'approved' | 'rejected', staffNotes: string) {
   const client = requireClient();
-  const { error } = await client.from('claims').update({ status, staff_notes: staffNotes }).eq('id', claimId);
+  const { data, error } = await client
+    .from('claims')
+    .update({ status, staff_notes: staffNotes })
+    .eq('id', claimId)
+    .select('id, status, pickup_code')
+    .maybeSingle();
   fail(error);
+  if (!data) throw new Error('That claim could not be updated.');
+  if (status === 'approved' && !data.pickup_code) throw new Error('The claim was approved without a pickup code.');
 }
 
 export async function updateItemStatus(itemId: string, status: ItemStatus, storageSpot?: string, overrideNote?: string) {
