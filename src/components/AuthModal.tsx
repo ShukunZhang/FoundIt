@@ -6,14 +6,21 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialStaff?: boolean;
+  choosingNewPassword?: boolean;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialStaff = false }) => {
-  const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-up');
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  initialStaff = false,
+  choosingNewPassword = false,
+}) => {
+  const { signIn, signUp, requestPasswordReset, updatePassword } = useAuth();
+  const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'forgot'>('sign-up');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [studentId, setStudentId] = useState('');
   const [staffCode, setStaffCode] = useState('');
   const [showStaff, setShowStaff] = useState(initialStaff);
@@ -29,6 +36,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialSt
     setError('');
     setMessage('');
     try {
+      if (choosingNewPassword) {
+        if (password !== confirmPassword) throw new Error('Those passwords do not match.');
+        await updatePassword(password);
+        onClose();
+        return;
+      }
+      if (mode === 'forgot') {
+        await requestPasswordReset(email);
+        setMessage('If an account uses that email, a reset link is on its way. Open it in this browser, then choose a new password.');
+        return;
+      }
       if (mode === 'sign-in') {
         await signIn(email, password);
         onClose();
@@ -53,39 +71,75 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialSt
     }
   };
 
+  const title = choosingNewPassword
+    ? 'Choose a new password'
+    : mode === 'forgot'
+      ? 'Reset your password'
+      : mode === 'sign-in'
+        ? 'Sign in'
+        : 'Create your FoundIt account';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
       <form onSubmit={(event) => void submit(event)} className="w-full max-w-md bg-white rounded-3xl p-6 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">{mode === 'sign-in' ? 'Sign in' : 'Create your FoundIt account'}</h2>
+          <h2 className="text-lg font-bold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close"><X className="w-5 h-5" /></button>
         </div>
-        <p className="text-xs text-slate-600">Browsing stays open without an account. Claiming, lost reports, and return tags need a sign-in. Staff tools need a desk code.</p>
-        {mode === 'sign-up' && (
+        {choosingNewPassword ? (
+          <p className="text-xs text-slate-600">This replaces the password on your FoundIt account.</p>
+        ) : mode === 'forgot' ? (
+          <p className="text-xs text-slate-600">Enter the email on your account. The reset link only works in this browser.</p>
+        ) : (
+          <p className="text-xs text-slate-600">Browsing stays open without an account. Claiming, lost reports, and return tags need a sign-in. Staff tools need a desk code.</p>
+        )}
+        {!choosingNewPassword && mode === 'sign-up' && (
           <>
             <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Full name" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
             <input value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="Student number (optional)" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
           </>
         )}
-        <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
-        <input required type="password" minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
-        {mode === 'sign-up' && (
+        {!choosingNewPassword && (
+          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+        )}
+        {mode !== 'forgot' && (
+          <input required type="password" minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={choosingNewPassword ? 'New password' : 'Password'} className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+        )}
+        {choosingNewPassword && (
+          <input required type="password" minLength={6} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm new password" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+        )}
+        {!choosingNewPassword && mode === 'sign-up' && (
           <label className="flex items-center gap-2 text-xs text-slate-700">
             <input type="checkbox" checked={showStaff} onChange={(event) => setShowStaff(event.target.checked)} />
             I have a staff desk code
           </label>
         )}
-        {showStaff && mode === 'sign-up' && (
+        {showStaff && mode === 'sign-up' && !choosingNewPassword && (
           <input value={staffCode} onChange={(event) => setStaffCode(event.target.value)} placeholder="Staff code" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
         )}
         {error && <p className="text-xs text-rose-700">{error}</p>}
         {message && <p className="text-xs text-emerald-800">{message}</p>}
         <button disabled={busy} className="w-full py-3 rounded-xl bg-slate-950 text-white text-sm font-bold">
-          {busy ? 'Working…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
+          {busy ? 'Working…' : choosingNewPassword ? 'Save password' : mode === 'forgot' ? 'Send reset link' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
         </button>
-        <button type="button" className="w-full text-xs text-slate-600" onClick={() => setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')}>
-          {mode === 'sign-in' ? 'Need an account? Create one' : 'Already have an account? Sign in'}
-        </button>
+        {!choosingNewPassword && mode === 'sign-in' && (
+          <button type="button" className="w-full text-xs font-semibold text-amber-800" onClick={() => { setMode('forgot'); setError(''); setMessage(''); }}>
+            Forgot password?
+          </button>
+        )}
+        {!choosingNewPassword && (
+          <button
+            type="button"
+            className="w-full text-xs text-slate-600"
+            onClick={() => {
+              setMode(mode === 'sign-in' || mode === 'forgot' ? 'sign-up' : 'sign-in');
+              setError('');
+              setMessage('');
+            }}
+          >
+            {mode === 'sign-up' ? 'Already have an account? Sign in' : 'Need an account? Create one'}
+          </button>
+        )}
       </form>
     </div>
   );

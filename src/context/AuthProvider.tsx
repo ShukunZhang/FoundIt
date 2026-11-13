@@ -25,6 +25,9 @@ interface AuthContextValue {
   authError: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: { name: string; email: string; password: string; studentId: string; staffCode?: string }) => Promise<string>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  needsNewPassword: boolean;
   signOut: () => Promise<void>;
   redeemCode: (code: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -36,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile>(GUEST_PROFILE);
   const [loading, setLoading] = useState(supabaseConfigured);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [needsNewPassword, setNeedsNewPassword] = useState(false);
 
   const refreshProfile = useCallback(async () => {
     if (!supabase) return;
@@ -63,7 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.session?.user) await refreshProfile();
       if (active) setLoading(false);
     });
-    const { data: subscription } = supabase.auth.onAuthStateChange(() => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setNeedsNewPassword(true);
       void refreshProfile();
     });
     return () => {
@@ -109,9 +114,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return 'signed-in';
   }, [refreshProfile]);
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}${window.location.pathname}`,
+    });
+    if (error) throw new Error(error.message);
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw new Error(error.message);
+    setNeedsNewPassword(false);
+    await refreshProfile();
+  }, [refreshProfile]);
+
   const signOut = useCallback(async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
+    setNeedsNewPassword(false);
     setProfile(GUEST_PROFILE);
   }, []);
 
@@ -127,10 +149,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authError,
     signIn,
     signUp,
+    requestPasswordReset,
+    updatePassword,
+    needsNewPassword,
     signOut,
     redeemCode,
     refreshProfile,
-  }), [loading, profile, authError, signIn, signUp, signOut, redeemCode, refreshProfile]);
+  }), [loading, profile, authError, signIn, signUp, requestPasswordReset, updatePassword, needsNewPassword, signOut, redeemCode, refreshProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

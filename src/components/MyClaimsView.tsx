@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { FoundItem, UserProfile } from '../types';
 import { CAMPUS_DESKS } from '../mockData';
+import { studentItemLabel } from '../lib/studentView';
 
 interface MyClaimsViewProps {
   items: FoundItem[];
@@ -130,7 +131,7 @@ export const MyClaimsView: React.FC<MyClaimsViewProps> = ({
                               </span>
                             )}
                           </div>
-                          <h4 className="text-base font-bold text-slate-900">{item.title}</h4>
+                          <h4 className="text-base font-bold text-slate-900">{studentItemLabel(item)}</h4>
                         </div>
 
                         {/* Status pill */}
@@ -180,7 +181,7 @@ export const MyClaimsView: React.FC<MyClaimsViewProps> = ({
                             onClick={() =>
                               onShowPickupCode(
                                 item.claim!.pickupCode,
-                                item.title,
+                                studentItemLabel(item),
                                 item.desk
                               )
                             }
@@ -213,7 +214,7 @@ export const MyClaimsView: React.FC<MyClaimsViewProps> = ({
                     className="bg-white rounded-xl border border-slate-200/60 p-3.5 text-xs text-slate-600 flex items-center justify-between"
                   >
                     <div>
-                      <span className="font-bold text-slate-900">{item.title}</span>
+                      <span className="font-bold text-slate-900">{studentItemLabel(item)}</span>
                       <p className="text-[11px] text-slate-400">
                         Picked up from {item.desk}
                       </p>

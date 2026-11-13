@@ -49,12 +49,12 @@ interface ProfileRow {
 
 interface ItemRow {
   id: string;
-  title: string;
+  title?: string;
   category: string;
   subcategory: string | null;
   colour: string;
-  brand: string | null;
-  public_description: string;
+  brand?: string | null;
+  public_description?: string;
   distinctive_features: string | null;
   desk_id: string;
   logged_at: string;
@@ -143,12 +143,12 @@ export function publicPhotoUrl(bucket: string | null, path: string | null, valua
 export function mapItem(row: ItemRow, secret?: SecretRow): FoundItem {
   return {
     id: row.id,
-    title: row.title,
+    title: row.title ?? '',
     category: row.category as Category,
     subcategory: row.subcategory ?? undefined,
     colour: row.colour,
     brand: row.brand ?? undefined,
-    publicDescription: row.public_description,
+    publicDescription: row.public_description ?? '',
     detailedDescription: secret?.detailed_description ?? undefined,
     distinctiveFeatures: row.distinctive_features ?? undefined,
     desk: row.desks?.name ?? row.desk_id,

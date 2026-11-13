@@ -1,6 +1,7 @@
 import React from 'react';
-import { MapPin, Lock, Clock, Sparkles } from 'lucide-react';
+import { MapPin, Lock, Clock } from 'lucide-react';
 import { FoundItem } from '../types';
+import { studentItemLabel } from '../lib/studentView';
 import { ItemPhotoPlaceholder } from './CategoryIcon';
 
 interface ItemCardProps {
@@ -21,16 +22,12 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick }) => {
     >
       {/* Visual Header */}
       <div className="relative">
-        {item.imageUrl && !isValuable ? (
-          <img src={item.imageUrl} alt="" className="h-36 sm:h-40 w-full object-cover" />
-        ) : (
-          <ItemPhotoPlaceholder
-            category={item.category}
-            colour={item.colour}
-            valuable={isValuable}
-            className="h-36 sm:h-40 w-full group-hover:scale-102 transition-transform duration-300"
-          />
-        )}
+        <ItemPhotoPlaceholder
+          category={item.category}
+          colour={item.colour}
+          valuable={isValuable}
+          className="h-36 sm:h-40 w-full group-hover:scale-102 transition-transform duration-300"
+        />
 
         {/* Status badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start">
@@ -76,7 +73,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick }) => {
 
           {/* Title: Valuable items show generic description */}
           <h4 className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-amber-700 transition-colors">
-            {isValuable ? item.publicDescription : item.title}
+            {studentItemLabel(item)}
           </h4>
 
           {/* Location Desk */}

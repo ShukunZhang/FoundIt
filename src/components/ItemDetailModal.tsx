@@ -2,6 +2,7 @@ import React from 'react';
 import { X, MapPin, Clock, Calendar, ShieldCheck, Lock, AlertTriangle, ArrowRight } from 'lucide-react';
 import { FoundItem, TimelineEvent, UserProfile } from '../types';
 import { CAMPUS_DESKS, getDaysUntilDeskTransfer, getRetentionPolicyDays } from '../mockData';
+import { studentItemLabel } from '../lib/studentView';
 import { ItemPhotoPlaceholder } from './CategoryIcon';
 
 interface ItemDetailModalProps {
@@ -100,22 +101,15 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             </div>
 
             <h3 className="text-xl font-bold text-slate-900">
-              {item.valuable ? item.publicDescription : item.title}
+              {studentItemLabel(item)}
             </h3>
 
-            {/* Privacy notice for valuables */}
-            {item.valuable ? (
-              <div className="mt-2 p-2.5 bg-amber-50/80 rounded-xl border border-amber-200/60 text-[11px] text-amber-900 flex items-start gap-2">
-                <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
-                <span>
-                  <strong>Privacy Protected:</strong> Identifying contents, brands, and serial details are concealed for student safety.
-                </span>
-              </div>
-            ) : (
-              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                {item.detailedDescription || item.publicDescription}
-              </p>
-            )}
+            <div className="mt-2 p-2.5 bg-amber-50/80 rounded-xl border border-amber-200/60 text-[11px] text-amber-900 flex items-start gap-2">
+              <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+              <span>
+                Students only see the colour, type, and desk. Brand, photos, and marks stay with staff. Describe one of those when you claim, and the desk checks it before handing the item over.
+              </span>
+            </div>
           </div>
 
           {/* Desk Location & Hours Card */}

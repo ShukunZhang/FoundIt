@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, ChevronLeft, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck } from 'lucide-react';
+import { Archive, Bell, Compass, FileCheck, LayoutDashboard, Map, PlusCircle, Scan, ShieldCheck, Tag } from 'lucide-react';
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
@@ -25,6 +25,7 @@ import {
   uploadPhoto,
 } from './lib/db';
 import { attachClaims } from './lib/mappers';
+import { forStudentView, studentItemLabel } from './lib/studentView';
 import { getNearestDesk } from './mockData';
 import type { Category, FoundItem, NotificationItem } from './types';
 import { Navbar } from './components/Navbar';
@@ -59,21 +60,11 @@ const STUDENT_GUIDE: GuideStep[] = [
   { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'Matches, WatCard alerts, approvals, and pickup reminders stay in the inbox.' },
 ];
 
-const STUDENT_TITLES: Record<StudentTab, string> = {
-  explore: 'Search',
-  reports: 'Lost reports',
-  matches: 'Matches',
-  tags: 'Return tags',
-  map: 'Campus map',
-  claims: 'My claims',
-  inbox: 'Inbox',
-};
-
 type StudentTab = 'explore' | 'reports' | 'matches' | 'tags' | 'map' | 'claims' | 'inbox';
 type StaffTab = 'dashboard' | 'inventory' | 'claims' | 'log' | 'scan' | 'map' | 'timeline';
 
 export function FoundItScreen() {
-  const { configured, loading, profile, signOut } = useAuth();
+  const { configured, loading, profile, signOut, needsNewPassword } = useAuth();
   const queryClient = useQueryClient();
   const signedIn = profile.isSignedIn;
   const isStaff = profile.role === 'staff' || profile.role === 'admin';
@@ -93,6 +84,10 @@ export function FoundItScreen() {
   const [banner, setBanner] = useState('');
 
   React.useEffect(() => {
+    if (needsNewPassword) setAuthOpen(true);
+  }, [needsNewPassword]);
+
+  React.useEffect(() => {
     const hash = window.location.hash;
     if (!hash.includes('error=')) return;
     const expired = hash.includes('otp_expired') || hash.includes('access_denied');
@@ -104,7 +99,7 @@ export function FoundItScreen() {
 
   const desks = useQuery({ queryKey: ['desks'], queryFn: fetchDesks, enabled: configured });
   const buildings = useQuery({ queryKey: ['buildings'], queryFn: fetchBuildings, enabled: configured });
-  const itemQuery = useQuery({ queryKey: ['items'], queryFn: fetchItems, enabled: configured });
+  const itemQuery = useQuery({ queryKey: ['items', isStaff], queryFn: () => fetchItems(isStaff), enabled: configured && !loading });
   const claimQuery = useQuery({ queryKey: ['claims'], queryFn: fetchClaims, enabled: signedIn });
   const noteQuery = useQuery({ queryKey: ['notes'], queryFn: fetchNotifications, enabled: signedIn });
   const reportQuery = useQuery({ queryKey: ['reports'], queryFn: fetchReports, enabled: signedIn });
@@ -120,6 +115,7 @@ export function FoundItScreen() {
     () => attachClaims(itemQuery.data ?? [], claimQuery.data ?? [], profile.id ?? '', isStaff),
     [itemQuery.data, claimQuery.data, profile.id, isStaff],
   );
+  const studentItems = useMemo(() => items.map(forStudentView), [items]);
 
   const reminders = useMemo<NotificationItem[]>(() => {
     return items.flatMap((item) => {
@@ -131,7 +127,7 @@ export function FoundItScreen() {
         id: `reminder-${item.id}`,
         type: 'expiring_soon' as const,
         title: 'Your item leaves soon',
-        message: `${item.valuable ? item.publicDescription : item.title} leaves the desk in ${left} days.`,
+        message: `${studentItemLabel(item)} leaves the desk in ${left} days.`,
         timestamp: 'Today',
         read: false,
         relatedItemId: item.id,
@@ -205,22 +201,22 @@ export function FoundItScreen() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 pb-16">
         {role === 'student' ? (
           <div>
-            {studentTab !== 'explore' && (
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setStudentTab(studentTab === 'matches' ? 'reports' : 'explore')}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-slate-950"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  {studentTab === 'matches' ? 'Lost reports' : 'Search'}
-                </button>
-                <h2 className="text-sm font-bold text-slate-950">{STUDENT_TITLES[studentTab]}</h2>
-              </div>
-            )}
+            <TabBar
+              tabs={[
+                ['explore', 'Search', Compass],
+                ['reports', 'Lost reports', FileCheck],
+                ['matches', 'Matches', ShieldCheck],
+                ['tags', 'Return tags', Tag],
+                ['map', 'Map', Map],
+                ['claims', 'Claims', FileCheck],
+                ['inbox', 'Inbox', Bell],
+              ]}
+              active={studentTab}
+              onChange={(tab) => setStudentTab(tab as StudentTab)}
+            />
             {studentTab === 'explore' && (
               <StudentHome
-                items={items}
+                items={studentItems}
                 onSelectItem={setSelected}
                 onOpenReportFound={() => signedIn ? setReportFoundOpen(true) : setAuthOpen(true)}
                 onOpenLost={() => signedIn ? setLostOpen(true) : setAuthOpen(true)}
@@ -231,7 +227,7 @@ export function FoundItScreen() {
             {studentTab === 'matches' && (
               <MatchesView
                 matches={matchQuery.data ?? []}
-                items={items}
+                items={studentItems}
                 reports={reportQuery.data ?? []}
                 onDecide={async (id, status) => { await setMatchStatus(id, status); await refresh(); }}
                 onClaim={setClaimItem}
@@ -244,16 +240,16 @@ export function FoundItScreen() {
                 onSimulateScan={async (code) => { await scanReturnTag(code); await refresh(); setBanner('The owner was notified. Their contact details stayed private.'); }}
               />
             )}
-            {studentTab === 'map' && <CampusMapView buildings={buildings.data ?? []} desks={desks.data ?? []} items={items} reports={reportQuery.data ?? []} />}
+            {studentTab === 'map' && <CampusMapView buildings={buildings.data ?? []} desks={desks.data ?? []} items={studentItems} reports={reportQuery.data ?? []} />}
             {studentTab === 'claims' && (
-              <MyClaimsView items={items} user={profile} onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })} onExplore={() => setStudentTab('explore')} onSignIn={() => setAuthOpen(true)} />
+              <MyClaimsView items={studentItems} user={profile} onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })} onExplore={() => setStudentTab('explore')} onSignIn={() => setAuthOpen(true)} />
             )}
             {studentTab === 'inbox' && (
               <InboxView
                 notifications={notifications}
                 onMarkAllAsRead={() => { void markNotificationsRead().then(refresh); }}
                 onNotificationAction={(note) => {
-                  const item = items.find((entry) => entry.id === note.relatedItemId);
+                  const item = studentItems.find((entry) => entry.id === note.relatedItemId);
                   if (item) setSelected(item);
                 }}
                 onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
@@ -335,7 +331,7 @@ export function FoundItScreen() {
         onClose={() => setSelected(null)}
         onClaimItem={(item) => { setSelected(null); setClaimItem(item); }}
         user={profile}
-        timeline={(timelineQuery.data ?? []).filter((event) => event.itemId === selected?.id)}
+        timeline={(timelineQuery.data ?? []).filter((event) => event.itemId === selected?.id && (role === 'staff' || event.visibility === 'public'))}
       />
       <ClaimModal
         item={claimItem}
@@ -394,7 +390,12 @@ export function FoundItScreen() {
         deskName={qr.desk}
         onSimulateStaffScan={() => { setScanCode(qr.code); setRole('staff'); setStaffTab('scan'); }}
       />
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} initialStaff={role === 'staff'} />
+      {needsNewPassword && !authOpen && (
+        <button type="button" onClick={() => setAuthOpen(true)} className="fixed bottom-4 right-4 z-40 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold shadow-lg">
+          Choose a new password
+        </button>
+      )}
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialStaff={role === 'staff'} />
       <GuideTour open={guideOpen && role === 'student'} steps={STUDENT_GUIDE} onClose={closeGuide} />
     </div>
   );
@@ -412,16 +413,16 @@ function TabBar({
   dark?: boolean;
 }) {
   return (
-    <div className="flex gap-1.5 mb-5 overflow-x-auto p-1.5 bg-white rounded-2xl border border-slate-200">
+    <div className="grid grid-cols-7 gap-1 mb-5 w-full p-1.5 bg-white rounded-2xl border border-slate-200">
       {tabs.map(([id, label, Icon]) => (
         <button
           key={id}
           type="button"
           onClick={() => onChange(id)}
-          className={`py-2 px-3 text-xs font-bold rounded-xl flex items-center gap-1.5 whitespace-nowrap ${active === id ? (dark ? 'bg-slate-950 text-white' : 'bg-amber-400 text-slate-950') : 'text-slate-600'}`}
+          className={`min-w-0 py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl flex items-center justify-center gap-1 text-center ${active === id ? (dark ? 'bg-slate-950 text-white' : 'bg-amber-400 text-slate-950') : 'text-slate-600'}`}
         >
-          <Icon className="w-3.5 h-3.5" />
-          {label}
+          <Icon className="w-3.5 h-3.5 shrink-0 hidden sm:block" />
+          <span className="truncate">{label}</span>
         </button>
       ))}
     </div>

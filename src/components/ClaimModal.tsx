@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Lock, Sparkles, AlertCircle, ShieldAlert, CheckCircle2, ArrowRight } from 'lucide-react';
 import { FoundItem, UserProfile } from '../types';
+import { studentItemLabel } from '../lib/studentView';
 
 interface ClaimModalProps {
   isOpen: boolean;
@@ -52,6 +53,11 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
 
     if (isValuable && !verificationAnswer.trim()) {
       setErrorMsg('Please answer the ownership verification question so staff can verify your identity.');
+      return;
+    }
+
+    if (!isValuable && distinguishingDetail.trim().length < 8) {
+      setErrorMsg('Describe a mark, brand, or content that is not on the listing. The desk uses it to check the claim.');
       return;
     }
 
@@ -124,7 +130,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
             <div className="min-w-0 flex-1">
               <p className="text-xs text-slate-500 font-medium">Claiming item from {item.desk}</p>
               <h4 className="font-bold text-slate-900 truncate">
-                {isValuable ? item.publicDescription : item.title}
+                {studentItemLabel(item)}
               </h4>
               <p className="text-xs text-slate-500 mt-0.5">Colour: {item.colour}</p>
             </div>
@@ -174,7 +180,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
                 <div>
                   <h4 className="text-lg font-bold text-slate-900">Item Reserved Instantly!</h4>
                   <p className="text-xs text-slate-600 mt-1">
-                    This item has been taken off the public board for 7 days. Present your pickup code at <span className="font-semibold text-slate-900">{item.desk}</span>.
+                    This item is held for 7 days. At <span className="font-semibold text-slate-900">{item.desk}</span>, staff compare the detail you wrote with the item before handing it over.
                   </p>
 
                   <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
@@ -194,7 +200,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
                   <button
                     onClick={() => {
                       onClose();
-                      onShowPickupCode(generatedCode, item.title, item.desk);
+                      onShowPickupCode(generatedCode, studentItemLabel(item), item.desk);
                     }}
                     className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
                   >
@@ -250,26 +256,25 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
                 </div>
               ) : (
                 <div>
-                  <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs text-emerald-900 mb-3">
-                    <p className="font-bold">Instant Release Eligible</p>
-                    <p className="text-[11px] text-emerald-800 mt-0.5">
-                      Non-valuable items are reserved immediately upon claim. You will receive a pickup QR code right away.
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-950 mb-3">
+                    <p className="font-bold">The listing hides identifying details</p>
+                    <p className="text-[11px] text-amber-900 mt-0.5">
+                      Brand, photos, and marks are not shown. Write one only the owner would know. The desk checks it before release.
                     </p>
                   </div>
 
                   <label className="block text-xs font-bold text-slate-900 mb-1">
-                    Distinguishing Detail <span className="text-slate-400 font-normal">(Optional)</span>
+                    Detail only you would know <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
+                    minLength={8}
                     value={distinguishingDetail}
                     onChange={(e) => setDistinguishingDetail(e.target.value)}
-                    placeholder="e.g. Size M, small scratch on lid, sticker near handle"
+                    placeholder="e.g. goose sticker on the lid, name inside the collar"
                     className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Helps staff verify you when you reach the desk.
-                  </p>
                 </div>
               )}
 
@@ -309,7 +314,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
                       : 'bg-amber-400 text-slate-950 hover:bg-amber-300'
                   }`}
                 >
-                  {isValuable ? 'Submit for Staff Review' : 'Claim Instantly'}
+                  {isValuable ? 'Submit for Staff Review' : 'Reserve with this detail'}
                 </button>
               </div>
             </form>

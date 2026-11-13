@@ -42,13 +42,18 @@ export async function fetchProfile(userId: string) {
   return data ? mapProfile(data) : null;
 }
 
-export async function fetchItems() {
+export async function fetchItems(includePrivate: boolean) {
   const client = requireClient();
-  const { data, error } = await client.from('found_items').select('*, desks(name)').order('logged_at', { ascending: false });
-  fail(error);
-  const secrets = await client.from('found_item_secrets').select('*');
-  const secretByItem = new Map((secrets.error ? [] : secrets.data ?? []).map((row) => [row.item_id, row]));
-  return (data ?? []).map((row) => mapItem(row, secretByItem.get(row.id)));
+  const result = includePrivate
+    ? await client.from('found_items').select('*, desks(name)').order('logged_at', { ascending: false })
+    : await client.from('found_items').select('id, category, subcategory, colour, desk_id, logged_at, status, valuable, desks(name)').order('logged_at', { ascending: false });
+  fail(result.error);
+  const secretByItem = new Map<string, { item_id: string; detailed_description: string | null; watcard_name: string | null }>();
+  if (includePrivate) {
+    const secrets = await client.from('found_item_secrets').select('*');
+    for (const row of secrets.error ? [] : secrets.data ?? []) secretByItem.set(row.item_id, row);
+  }
+  return (result.data ?? []).map((row) => mapItem(row, secretByItem.get(row.id)));
 }
 
 export async function fetchClaims() {

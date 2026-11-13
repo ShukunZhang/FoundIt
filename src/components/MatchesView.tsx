@@ -1,5 +1,6 @@
 import React from 'react';
 import type { FoundItem, ItemMatch, LostReport } from '../types';
+import { studentItemLabel } from '../lib/studentView';
 
 interface MatchesViewProps {
   matches: ItemMatch[];
@@ -26,7 +27,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({ matches, items, report
               <h3 className="font-bold">{match.confidence}% match</h3>
               <span className="text-[11px] uppercase font-bold">{match.status}</span>
             </div>
-            <p className="text-xs">Lost: {report.title} · Found: {item.valuable ? item.publicDescription : item.title} at {item.desk}</p>
+            <p className="text-xs">Lost: {report.title} · Found: {studentItemLabel(item)} at {item.desk}</p>
             <p className="text-xs text-emerald-800">{match.reasons.join(' · ') || 'Shared traits'}</p>
             {match.differences.length > 0 && <p className="text-xs text-rose-800">{match.differences.join(' · ')}</p>}
             {match.status === 'pending' && (

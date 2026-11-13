@@ -83,7 +83,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
       // Search query (search title, category, colour, public description, desk)
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const textToMatch = `${item.title} ${item.category} ${item.colour} ${item.publicDescription} ${item.desk}`.toLowerCase();
+        const textToMatch = `${item.category} ${item.subcategory ?? ''} ${item.colour} ${item.desk}`.toLowerCase();
         if (!textToMatch.includes(query)) {
           return false;
         }
@@ -135,7 +135,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by item, colour, brand (e.g. black wallet, AirPods, Hydro Flask, keys)..."
+            placeholder="Search by colour or type (black, bottle, keys)..."
             className="w-full pl-12 pr-10 py-3.5 bg-slate-50 border border-slate-300 focus:bg-white rounded-2xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all shadow-2xs"
           />
           {searchQuery && (
