@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { UserProfile } from '../types';
 import { fetchProfile, redeemStaffCode } from '../lib/db';
 import { supabase, supabaseConfigured } from '../lib/supabase';
@@ -23,14 +23,15 @@ interface AuthContextValue {
   loading: boolean;
   profile: UserProfile;
   authError: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<UserProfile>;
   signUp: (input: { name: string; email: string; password: string; studentId: string; staffCode?: string }) => Promise<string>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   needsNewPassword: boolean;
   signOut: () => Promise<void>;
+  acceptSession: (next: UserProfile) => void;
   redeemCode: (code: string) => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<UserProfile>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,22 +41,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(supabaseConfigured);
   const [authError, setAuthError] = useState<string | null>(null);
   const [needsNewPassword, setNeedsNewPassword] = useState(false);
+  const generation = useRef(0);
+  const holdProfile = useRef(false);
 
-  const refreshProfile = useCallback(async () => {
-    if (!supabase) return;
+  const publishProfile = useCallback((next: UserProfile, generationAtStart: number) => {
+    if (generation.current !== generationAtStart || holdProfile.current) return;
+    setProfile(next);
+  }, []);
+
+  const refreshProfile = useCallback(async (): Promise<UserProfile> => {
+    const generationAtStart = generation.current;
+    if (!supabase) return GUEST_PROFILE;
     const { data } = await supabase.auth.getUser();
+    if (generation.current !== generationAtStart) return GUEST_PROFILE;
     if (!data.user) {
-      setProfile(GUEST_PROFILE);
-      return;
+      publishProfile(GUEST_PROFILE, generationAtStart);
+      return GUEST_PROFILE;
     }
     const next = await fetchProfile(data.user.id);
-    setProfile(next ?? { ...GUEST_PROFILE, id: data.user.id, email: data.user.email ?? '', isSignedIn: true });
+    if (generation.current !== generationAtStart) return GUEST_PROFILE;
+    let resolved = next ?? { ...GUEST_PROFILE, id: data.user.id, email: data.user.email ?? '', isSignedIn: true };
     const pending = localStorage.getItem(PENDING_CODE_KEY);
     if (pending && next && next.role === 'student') {
       await redeemStaffCode(pending);
       localStorage.removeItem(PENDING_CODE_KEY);
       const upgraded = await fetchProfile(data.user.id);
-      if (upgraded) setProfile(upgraded);
+      if (generation.current !== generationAtStart) return GUEST_PROFILE;
+      if (upgraded) resolved = upgraded;
+    }
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (generation.current !== generationAtStart || !sessionData.session) return GUEST_PROFILE;
+    publishProfile(resolved, generationAtStart);
+    return resolved;
+  }, [publishProfile]);
+
+  const signOut = useCallback(async () => {
+    generation.current += 1;
+    holdProfile.current = true;
+    setProfile(GUEST_PROFILE);
+    setNeedsNewPassword(false);
+    try {
+      if (supabase) await supabase.auth.signOut();
+    } finally {
+      holdProfile.current = false;
     }
   }, []);
 
@@ -80,13 +108,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) throw new Error('Supabase is not configured.');
     setAuthError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(error.message);
-      throw new Error(error.message);
+    holdProfile.current = true;
+    let sessionStarted = false;
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        holdProfile.current = false;
+        setAuthError(error.message);
+        throw new Error(error.message);
+      }
+      sessionStarted = true;
+      const next = await refreshProfile();
+      if (!next.isSignedIn) throw new Error('Could not load this account.');
+      return next;
+    } catch (error) {
+      if (sessionStarted) await signOut();
+      else holdProfile.current = false;
+      throw error;
     }
-    await refreshProfile();
-  }, [refreshProfile]);
+  }, [refreshProfile, signOut]);
 
   const signUp = useCallback(async (input: { name: string; email: string; password: string; studentId: string; staffCode?: string }) => {
     if (!supabase) throw new Error('Supabase is not configured.');
@@ -102,17 +142,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthError(registerError.message);
       throw new Error(registerError.message);
     }
-    const { error } = await supabase.auth.signInWithPassword({
-      email: input.email.trim(),
-      password: input.password,
-    });
-    if (error) {
-      setAuthError(error.message);
-      throw new Error(error.message);
+    holdProfile.current = true;
+    let sessionStarted = false;
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: input.email.trim(),
+        password: input.password,
+      });
+      if (error) {
+        holdProfile.current = false;
+        setAuthError(error.message);
+        throw new Error(error.message);
+      }
+      sessionStarted = true;
+      const next = await refreshProfile();
+      if (!next.isSignedIn) throw new Error('Could not load this account.');
+      return 'signed-in';
+    } catch (error) {
+      if (sessionStarted) await signOut();
+      else holdProfile.current = false;
+      throw error;
     }
-    await refreshProfile();
-    return 'signed-in';
-  }, [refreshProfile]);
+  }, [refreshProfile, signOut]);
 
   const requestPasswordReset = useCallback(async (email: string) => {
     if (!supabase) throw new Error('Supabase is not configured.');
@@ -130,11 +181,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshProfile();
   }, [refreshProfile]);
 
-  const signOut = useCallback(async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setNeedsNewPassword(false);
-    setProfile(GUEST_PROFILE);
+  const acceptSession = useCallback((next: UserProfile) => {
+    holdProfile.current = false;
+    setProfile(next);
   }, []);
 
   const redeemCode = useCallback(async (code: string) => {
@@ -153,9 +202,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updatePassword,
     needsNewPassword,
     signOut,
+    acceptSession,
     redeemCode,
     refreshProfile,
-  }), [loading, profile, authError, signIn, signUp, requestPasswordReset, updatePassword, needsNewPassword, signOut, redeemCode, refreshProfile]);
+  }), [loading, profile, authError, signIn, signUp, requestPasswordReset, updatePassword, needsNewPassword, signOut, acceptSession, redeemCode, refreshProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
