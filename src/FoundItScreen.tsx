@@ -53,7 +53,7 @@ const GUIDE_KEY = 'foundit.guide.v1';
 
 const STUDENT_GUIDE: GuideStep[] = [
   { selector: '[data-tour="search"]', title: 'Search every desk', body: 'Browse without an account. Filters cover category, building, and how long an item has been waiting.' },
-  { selector: '[data-tour="actions"]', title: 'Lost or found', body: 'I lost something files a report. I found something logs an item for the nearest desk. Claims, codes, and return tags live under your profile after you sign in.' },
+  { selector: '[data-tour="actions"]', title: 'Lost or found', body: 'I lost something files a report. I found something logs an item for the nearest desk. Lost reports, matches, return tags, and claims live under your profile after you sign in.' },
   { selector: '[data-tour="map"]', title: 'Campus map', body: 'The Map tab shows which desks are holding items and where to pick them up.' },
   { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'The bell keeps matches, WatCard alerts, approvals, and pickup reminders.' },
 ];
@@ -122,7 +122,11 @@ export function FoundItScreen() {
   const claimQuery = useQuery({ queryKey: ['claims'], queryFn: fetchClaims, enabled: signedIn });
   const noteQuery = useQuery({ queryKey: ['notes'], queryFn: fetchNotifications, enabled: signedIn });
   const reportQuery = useQuery({ queryKey: ['reports'], queryFn: fetchReports, enabled: signedIn });
-  const matchQuery = useQuery({ queryKey: ['matches'], queryFn: fetchMatches, enabled: signedIn });
+  const matchQuery = useQuery({
+    queryKey: ['matches', profile.id],
+    queryFn: fetchMatches,
+    enabled: signedIn && Boolean(profile.id),
+  });
   const tagQuery = useQuery({ queryKey: ['tags'], queryFn: fetchTags, enabled: signedIn });
   const timelineQuery = useQuery({ queryKey: ['timeline'], queryFn: fetchTimeline, enabled: configured });
 
@@ -217,13 +221,26 @@ export function FoundItScreen() {
         currentView={role}
         onViewChange={setRole}
         user={profile}
-        onToggleSignIn={() => { if (signedIn) void signOut(); else openWatIam(); }}
+        onToggleSignIn={() => {
+          if (signedIn) {
+            void signOut();
+            setRole('student');
+            setStudentTab('explore');
+          } else {
+            openWatIam();
+          }
+        }}
+        onGoHome={() => {
+          if (role === 'student') setStudentTab('explore');
+        }}
         unreadCount={notifications.filter((note) => !note.read).length}
         onOpenInbox={() => openMine('inbox')}
         onOpenMap={() => { setRole('student'); setStudentTab('map'); }}
         activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
+        pendingMatchCount={signedIn && profile.id ? (matchQuery.data ?? []).filter((match) => match.status === 'pending').length : 0}
         onOpenMyClaims={() => openMine('claims')}
         onOpenReports={() => openMine('reports')}
+        onOpenMatches={() => openMine('matches')}
         onOpenTags={() => { setRole('student'); setStudentTab('tags'); }}
         selectedStaffDesk={staffDesk}
         onStaffDeskChange={setStaffDesk}
@@ -410,18 +427,29 @@ export function FoundItScreen() {
         onClose={() => setLostOpen(false)}
         onSubmit={async (draft: LostReportDraft) => {
           const imagePath = draft.photo ? await uploadPhoto(draft.photo, 'private-photos') : undefined;
-          const created = await createLostReport({ ...draft, lostAt: new Date(draft.lostAt).toISOString(), imagePath });
+          const parsedLostAt = draft.lostAt ? new Date(draft.lostAt) : new Date();
+          const colour = draft.colour.trim();
+          const description = draft.description.trim() || draft.title.trim();
+          const building = draft.building.trim();
+          const created = await createLostReport({
+            ...draft,
+            colour,
+            description,
+            building,
+            lostAt: Number.isNaN(parsedLostAt.getTime()) ? new Date().toISOString() : parsedLostAt.toISOString(),
+            imagePath,
+          });
           await rememberEmbedding('lost', created.id, {
             file: draft.photo,
             text: describeForMatch([
               draft.title,
               draft.category,
               draft.subcategory,
-              draft.colour,
+              colour,
               draft.brand,
-              draft.description,
+              description,
               draft.distinctiveFeatures,
-              draft.building,
+              building,
               draft.locationDetail,
             ]),
           }).catch(() => undefined);

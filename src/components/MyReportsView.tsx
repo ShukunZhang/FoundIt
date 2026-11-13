@@ -21,8 +21,8 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({ reports, matches, 
               <h3 className="font-bold">{report.title}</h3>
               <span className="text-[11px] uppercase font-bold text-amber-800">{report.status}</span>
             </div>
-            <p className="text-xs text-slate-600 mt-1">{report.colour} {report.category}{report.subcategory ? ` · ${report.subcategory}` : ''}{report.brand ? ` · ${report.brand}` : ''}</p>
-            <p className="text-xs text-slate-600">{report.building}{report.locationDetail ? ` · ${report.locationDetail}` : ''}</p>
+            <p className="text-xs text-slate-600 mt-1">{[report.colour, report.category].filter((part) => part.trim()).join(' ')}{report.subcategory ? ` · ${report.subcategory}` : ''}{report.brand ? ` · ${report.brand}` : ''}</p>
+            {report.building.trim() ? <p className="text-xs text-slate-600">{report.building}{report.locationDetail ? ` · ${report.locationDetail}` : ''}</p> : null}
             <p className="text-xs text-slate-500 mt-1">Lost {new Date(report.lostAt).toLocaleString()}</p>
             <p className="text-xs mt-2">{related.length} potential match{related.length === 1 ? '' : 'es'}</p>
             {related.length > 0 && (

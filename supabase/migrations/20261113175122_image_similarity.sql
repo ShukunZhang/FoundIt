@@ -37,6 +37,8 @@ declare
   image_sim double precision := null;
   same_category boolean := false;
   visual text;
+  report_colour text := btrim(coalesce(report.colour, ''));
+  item_colour text := btrim(coalesce(item.colour, ''));
 begin
   same_category := lower(report.category) is not distinct from lower(item.category);
 
@@ -68,15 +70,17 @@ begin
     diffs := diffs || jsonb_build_array('Different category');
   end if;
 
-  if lower(report.colour) = lower(item.colour) then
-    score := score + 18;
-    why := why || jsonb_build_array('Same colour');
-  elsif position(lower(report.colour) in lower(item.colour)) > 0
-     or position(lower(item.colour) in lower(report.colour)) > 0 then
-    score := score + 8;
-    why := why || jsonb_build_array('Similar colour');
-  else
-    diffs := diffs || jsonb_build_array('Different colour');
+  if report_colour <> '' and item_colour <> '' then
+    if lower(report_colour) = lower(item_colour) then
+      score := score + 18;
+      why := why || jsonb_build_array('Same colour');
+    elsif position(lower(report_colour) in lower(item_colour)) > 0
+       or position(lower(item_colour) in lower(report_colour)) > 0 then
+      score := score + 8;
+      why := why || jsonb_build_array('Similar colour');
+    else
+      diffs := diffs || jsonb_build_array('Different colour');
+    end if;
   end if;
 
   if coalesce(report.brand, '') <> '' and coalesce(item.brand, '') <> '' then
