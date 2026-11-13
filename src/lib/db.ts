@@ -231,6 +231,18 @@ export async function createClaim(itemId: string, verificationAnswer?: string, d
   return mapClaim(data);
 }
 
+export async function withdrawClaim(claimId: string) {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('claims')
+    .update({ status: 'withdrawn' })
+    .eq('id', claimId)
+    .select('id, status')
+    .maybeSingle();
+  fail(error);
+  if (!data || data.status !== 'withdrawn') throw new Error('That claim could not be cancelled.');
+}
+
 export async function reviewClaim(claimId: string, status: 'approved' | 'rejected', staffNotes: string) {
   const client = requireClient();
   const { data, error } = await client
@@ -242,6 +254,29 @@ export async function reviewClaim(claimId: string, status: 'approved' | 'rejecte
   fail(error);
   if (!data) throw new Error('That claim could not be updated.');
   if (status === 'approved' && !data.pickup_code) throw new Error('The claim was approved without a pickup code.');
+}
+
+/** Marks the item handed over and closes every open claim on it. */
+export async function completePickup(itemId: string): Promise<void> {
+  const client = requireClient();
+  const item = await client
+    .from('found_items')
+    .update({ status: 'picked-up' })
+    .eq('id', itemId)
+    .select('id, status')
+    .maybeSingle();
+  fail(item.error);
+  if (!item.data || item.data.status !== 'picked-up') {
+    throw new Error('The desk could not close this pickup.');
+  }
+
+  const claims = await client
+    .from('claims')
+    .update({ status: 'completed' })
+    .eq('item_id', itemId)
+    .in('status', ['pending', 'approved', 'contested'])
+    .select('id');
+  fail(claims.error);
 }
 
 export async function updateItemStatus(itemId: string, status: ItemStatus, storageSpot?: string, overrideNote?: string) {

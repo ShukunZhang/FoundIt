@@ -49,7 +49,7 @@ export interface ClaimRecord {
   claimantName: string;
   claimantEmail: string;
   claimedAt: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'contested';
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'contested' | 'withdrawn';
   pickupCode: string;
   holdExpiresAt: string;
   verificationAnswer?: string;

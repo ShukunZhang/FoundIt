@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Clock, QrCode } from 'lucide-react';
 import type { ClaimRecord, FoundItem } from '../types';
 import { studentItemLabel } from '../lib/studentView';
@@ -8,6 +8,7 @@ interface PickupCodesViewProps {
   items: FoundItem[];
   userId: string;
   onShowPickupCode: (code: string, title: string, desk: string) => void;
+  onWrongClaim: (claimId: string) => Promise<void>;
 }
 
 export const PickupCodesView: React.FC<PickupCodesViewProps> = ({
@@ -15,10 +16,19 @@ export const PickupCodesView: React.FC<PickupCodesViewProps> = ({
   items,
   userId,
   onShowPickupCode,
+  onWrongClaim,
 }) => {
-  const mine = claims.filter((claim) => claim.claimantId === userId && claim.status !== 'rejected');
-  const ready = mine.filter((claim) => claim.pickupCode && (claim.status === 'approved' || claim.status === 'contested'));
-  const waiting = mine.filter((claim) => !claim.pickupCode && (claim.status === 'pending' || claim.status === 'contested'));
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const closed = new Set(['rejected', 'completed', 'withdrawn']);
+  const mine = claims.filter((claim) => claim.claimantId === userId && !closed.has(claim.status));
+  const open = mine.filter((claim) => {
+    const item = items.find((entry) => entry.id === claim.itemId);
+    return item?.status !== 'picked-up' && item?.status !== 'donated';
+  });
+  const ready = open.filter((claim) => claim.pickupCode && (claim.status === 'approved' || claim.status === 'contested'));
+  const waiting = open.filter((claim) => !ready.includes(claim));
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
@@ -54,6 +64,34 @@ export const PickupCodesView: React.FC<PickupCodesViewProps> = ({
                   <QrCode className="w-4 h-4" />
                   Show pickup code
                 </button>
+                {confirmingId === claim.id ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-600">This is not your item. The claim will be cancelled. The item stays at the desk, and your lost report stays on your account.</p>
+                    {error && <p className="text-xs text-rose-700">{error}</p>}
+                    <div className="flex gap-2">
+                      <button type="button" disabled={busyId === claim.id} onClick={() => setConfirmingId(null)} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-xs font-bold">Keep claim</button>
+                      <button
+                        type="button"
+                        disabled={busyId === claim.id}
+                        onClick={() => {
+                          setBusyId(claim.id);
+                          setError('');
+                          void onWrongClaim(claim.id).catch((cancelError: unknown) => {
+                            setError(cancelError instanceof Error ? cancelError.message : 'Could not cancel the claim.');
+                            setBusyId(null);
+                          });
+                        }}
+                        className="flex-1 py-2.5 rounded-xl bg-rose-700 text-white text-xs font-bold"
+                      >
+                        {busyId === claim.id ? 'Cancelling…' : 'Wrong claim'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => { setError(''); setConfirmingId(claim.id); }} className="w-full py-2.5 rounded-xl border border-rose-300 text-rose-800 text-xs font-bold">
+                    Wrong claim
+                  </button>
+                )}
               </article>
             );
           })}

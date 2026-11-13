@@ -15,7 +15,7 @@ import { FoundItem } from '../types';
 
 interface StaffScanCodeProps {
   items: FoundItem[];
-  onCompletePickup: (itemId: string) => void;
+  onCompletePickup: (itemId: string) => Promise<void>;
   onAcceptDropOff: (itemId: string, storageSpot: string) => void;
   initialCode?: string;
   onScanReturnTag?: (code: string) => Promise<void>;
@@ -36,7 +36,7 @@ export const StaffScanCode: React.FC<StaffScanCodeProps> = ({
 
   // Available test codes in current mock data for instant 1-tap testing
   const samplePickupItems = items.filter(
-    (i) => i.claim?.pickupCode && i.status !== 'picked-up'
+    (i) => i.claim?.pickupCode && i.claim.status !== 'completed' && i.status !== 'picked-up' && i.status !== 'donated'
   );
   const sampleDropOffItems = items.filter(
     (i) => i.dropOffCode && i.status === 'in-transit'
@@ -49,7 +49,7 @@ export const StaffScanCode: React.FC<StaffScanCodeProps> = ({
 
     // Check if it's a pickup code
     const pickupMatch = items.find(
-      (i) => i.claim?.pickupCode?.toUpperCase() === cleanCode
+      (i) => i.claim?.pickupCode?.toUpperCase() === cleanCode && i.claim.status !== 'completed' && i.status !== 'picked-up' && i.status !== 'donated'
     );
 
     if (pickupMatch) {
@@ -94,13 +94,20 @@ export const StaffScanCode: React.FC<StaffScanCodeProps> = ({
 
   const handleVerifyPickup = () => {
     if (!matchedItem) return;
-    onCompletePickup(matchedItem.id);
-    setFeedbackMsg({
-      type: 'success',
-      text: `Pickup verified! "${matchedItem.title}" has been marked as Picked Up and handed to ${matchedItem.claim?.claimantName || 'student'}.`,
+    const item = matchedItem;
+    void onCompletePickup(item.id).then(() => {
+      setFeedbackMsg({
+        type: 'success',
+        text: `Pickup verified. "${item.title}" is closed and was handed to ${item.claim?.claimantName || 'the student'}.`,
+      });
+      setMatchedItem(null);
+      setCodeInput('');
+    }).catch((pickupError: unknown) => {
+      setFeedbackMsg({
+        type: 'error',
+        text: pickupError instanceof Error ? pickupError.message : 'Could not close this pickup.',
+      });
     });
-    setMatchedItem(null);
-    setCodeInput('');
   };
 
   const handleConfirmDropOff = () => {

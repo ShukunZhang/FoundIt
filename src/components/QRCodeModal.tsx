@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Clock, MapPin, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { CAMPUS_DESKS } from '../mockData';
 
@@ -10,6 +10,7 @@ interface QRCodeModalProps {
   deskName: string;
   holdExpiresAt?: string;
   onSimulateStaffScan?: () => void;
+  onWrongClaim?: () => Promise<void>;
 }
 
 export const QRCodeModal: React.FC<QRCodeModalProps> = ({
@@ -20,8 +21,32 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   deskName,
   holdExpiresAt = 'in 7 days (Nov 13, 2026)',
   onSimulateStaffScan,
+  onWrongClaim,
 }) => {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) return;
+    setConfirming(false);
+    setBusy(false);
+    setError('');
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const cancelClaim = async () => {
+    if (!onWrongClaim) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onWrongClaim();
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : 'Could not cancel the claim.');
+      setBusy(false);
+    }
+  };
 
   const desk = CAMPUS_DESKS[deskName] || {
     name: deskName,
@@ -138,6 +163,30 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
             <span>Show this screen or quote the 6-character code at the desk</span>
           </div>
+
+          {onWrongClaim && !confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="mt-4 w-full py-2.5 px-4 rounded-xl border border-rose-300 text-rose-800 font-bold text-xs"
+            >
+              Wrong claim
+            </button>
+          )}
+          {onWrongClaim && confirming && (
+            <div className="mt-4 text-left space-y-2">
+              <p className="text-xs text-slate-600">
+                This is not your item. The claim will be cancelled. The item stays at the desk, and your lost report stays on your account.
+              </p>
+              {error && <p className="text-xs text-rose-700">{error}</p>}
+              <div className="flex gap-2">
+                <button type="button" disabled={busy} onClick={() => setConfirming(false)} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-xs font-bold">Keep claim</button>
+                <button type="button" disabled={busy} onClick={() => void cancelClaim()} className="flex-1 py-2.5 rounded-xl bg-rose-700 text-white text-xs font-bold">
+                  {busy ? 'Cancelling…' : 'Wrong claim'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {onSimulateStaffScan && (
             <button

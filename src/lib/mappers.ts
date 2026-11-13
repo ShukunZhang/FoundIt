@@ -188,7 +188,7 @@ export function mapClaim(row: ClaimRow): ClaimRecord {
 
 export function attachClaims(items: FoundItem[], claims: ClaimRecord[], userId: string, isStaff: boolean): FoundItem[] {
   return items.map((item) => {
-    const related = claims.filter((claim) => claim.itemId === item.id && claim.status !== 'rejected');
+    const related = claims.filter((claim) => claim.itemId === item.id && claim.status !== 'rejected' && claim.status !== 'withdrawn');
     const mine = related.find((claim) => claim.claimantId === userId);
     const visible = isStaff ? related : mine ? [mine] : [];
     return {

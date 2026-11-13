@@ -4,6 +4,7 @@ import { Archive, Compass, FileCheck, LayoutDashboard, Map, PlusCircle, QrCode, 
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
+  completePickup,
   createClaim,
   createFoundItem,
   createLostReport,
@@ -19,6 +20,7 @@ import {
   fetchTimeline,
   markNotificationsRead,
   reviewClaim,
+  withdrawClaim,
   scanReturnTag,
   setMatchStatus,
   updateItemStatus,
@@ -81,7 +83,7 @@ export function FoundItScreen() {
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [selected, setSelected] = useState<FoundItem | null>(null);
   const [claimItem, setClaimItem] = useState<FoundItem | null>(null);
-  const [qr, setQr] = useState({ open: false, code: '', title: '', desk: '' });
+  const [qr, setQr] = useState({ open: false, code: '', title: '', desk: '', claimId: '' });
   const [scanCode, setScanCode] = useState('');
   const [banner, setBanner] = useState('');
   const [pickupNotice, setPickupNotice] = useState<{ code: string; message: string } | null>(null);
@@ -171,6 +173,18 @@ export function FoundItScreen() {
   const notifications = [...reminders, ...(noteQuery.data ?? [])];
   const showError = (error: unknown) => setBanner(error instanceof Error ? error.message : 'Something went wrong.');
 
+  const openPickup = (code: string, title: string, desk: string) => {
+    const claim = (claimQuery.data ?? []).find((entry) => entry.pickupCode === code && entry.claimantId === profile.id && entry.status !== 'withdrawn' && entry.status !== 'rejected');
+    setQr({ open: true, code, title, desk, claimId: claim?.id ?? '' });
+  };
+
+  const cancelWrongClaim = async (claimId: string) => {
+    await withdrawClaim(claimId);
+    await refresh();
+    setQr((current) => ({ ...current, open: false }));
+    setBanner('Claim cancelled. The item stays at the desk, and your lost report is still active.');
+  };
+
   const deskIdFor = (name: string) => desks.data?.find((desk) => desk.name === name)?.id ?? desks.data?.[0]?.id ?? '';
 
   const saveFound = async (draft: Omit<FoundItem, 'id' | 'dateLogged' | 'daysAgo'> & { photoFile?: File | null }) => {
@@ -245,7 +259,10 @@ export function FoundItScreen() {
         unreadCount={notifications.filter((note) => !note.read).length}
         onOpenInbox={() => openMine('inbox')}
         onOpenMap={() => setStudentTab('map')}
-        activeClaimsCount={items.filter((item) => item.claim?.claimantId === profile.id && item.status !== 'picked-up').length}
+        activeClaimsCount={items.filter((item) => {
+          const claim = item.claim;
+          return Boolean(claim && claim.claimantId === profile.id && claim.status !== 'completed' && claim.status !== 'rejected' && claim.status !== 'withdrawn' && item.status !== 'picked-up' && item.status !== 'donated');
+        }).length}
         pendingMatchCount={signedIn && profile.id ? (matchQuery.data ?? []).filter((match) => match.status === 'pending').length : 0}
         onOpenMyClaims={() => setStudentTab('codes')}
         onOpenReports={() => openMine('reports')}
@@ -262,7 +279,7 @@ export function FoundItScreen() {
           type="button"
           onClick={() => {
             if (!isStaff) setStudentTab('codes');
-            setQr({ open: true, code: pickupNotice.code, title: 'Your item', desk: 'the desk' });
+            openPickup(pickupNotice.code, 'Your item', 'the desk');
             setPickupNotice(null);
           }}
           className="bg-emerald-50 text-emerald-900 text-xs px-4 py-2 text-left font-semibold"
@@ -306,14 +323,14 @@ export function FoundItScreen() {
                 unreadCount={notifications.filter((note) => !note.read).length}
                 onDecide={async (id, status) => { await setMatchStatus(id, status); await refresh(); }}
                 onClaim={setClaimItem}
-                onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
+                onShowPickupCode={openPickup}
                 onExplore={() => setStudentTab('explore')}
                 onSignIn={openWatIam}
                 onMarkAllAsRead={() => { void markNotificationsRead().then(refresh); }}
                 onNotificationAction={(note) => {
                   if (note.pickupCode) {
                     const item = studentItems.find((entry) => entry.id === note.relatedItemId);
-                    setQr({ open: true, code: note.pickupCode, title: item ? studentItemLabel(item) : note.title, desk: item?.desk ?? 'the desk' });
+                    openPickup(note.pickupCode, item ? studentItemLabel(item) : note.title, item?.desk ?? 'the desk');
                     setStudentTab('codes');
                     return;
                   }
@@ -327,7 +344,8 @@ export function FoundItScreen() {
                 claims={claimQuery.data ?? []}
                 items={studentItems}
                 userId={profile.id ?? ''}
-                onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
+                onShowPickupCode={openPickup}
+                onWrongClaim={cancelWrongClaim}
               />
             )}
             {studentTab === 'tags' && (
@@ -356,7 +374,10 @@ export function FoundItScreen() {
               dark
             />
             {staffTab === 'dashboard' && <StaffDashboard items={items} selectedDesk={staffDesk} onSelectDesk={setStaffDesk} onNavigateTab={setStaffTab} />}
-            {staffTab === 'inventory' && <StaffInventory items={items} selectedDesk={staffDesk} onUpdateItemStatus={(id, status, note) => updateItemStatus(id, status, undefined, note).then(refresh).catch(showError)} />}
+            {staffTab === 'inventory' && <StaffInventory items={items} selectedDesk={staffDesk} onUpdateItemStatus={(id, status, note) => {
+              const task = status === 'picked-up' ? completePickup(id) : updateItemStatus(id, status, undefined, note);
+              void task.then(refresh).catch(showError);
+            }} />}
             {staffTab === 'claims' && (
               <StaffClaimsQueue
                 items={items}
@@ -389,7 +410,7 @@ export function FoundItScreen() {
               <StaffScanCode
                 items={items}
                 initialCode={scanCode}
-                onCompletePickup={(id) => updateItemStatus(id, 'picked-up').then(refresh).catch(showError)}
+                onCompletePickup={async (id) => { await completePickup(id); await refresh(); }}
                 onAcceptDropOff={(id, spot) => updateItemStatus(id, 'available', spot).then(refresh).catch(showError)}
                 onScanReturnTag={async (code) => { await scanReturnTag(code); await refresh(); }}
               />
@@ -419,7 +440,7 @@ export function FoundItScreen() {
           await refresh();
           return { pickupCode: claim.pickupCode };
         }}
-        onShowPickupCode={(code, title, desk) => setQr({ open: true, code, title, desk })}
+        onShowPickupCode={openPickup}
       />
       <ReportFoundModal
         isOpen={reportFoundOpen}
@@ -495,6 +516,7 @@ export function FoundItScreen() {
         itemTitle={qr.title}
         deskName={qr.desk}
         onSimulateStaffScan={isStaff ? () => { setScanCode(qr.code); setStaffTab('scan'); } : undefined}
+        onWrongClaim={qr.claimId ? () => cancelWrongClaim(qr.claimId) : undefined}
       />
       {needsNewPassword && !authOpen && (
         <button type="button" onClick={() => setAuthOpen(true)} className="fixed bottom-20 right-4 z-40 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold shadow-lg sm:bottom-4">
