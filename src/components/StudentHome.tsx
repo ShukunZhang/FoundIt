@@ -2,33 +2,27 @@ import React, { useState, useMemo } from 'react';
 import {
   Search,
   MapPin,
-  PlusCircle,
   BellRing,
   X,
   Calendar,
 } from 'lucide-react';
-import { Category, FoundItem } from '../types';
+import { FoundItem } from '../types';
+import { categoryIsValuable } from '../lib/categories';
 import { ItemCard } from './ItemCard';
 
 interface StudentHomeProps {
   items: FoundItem[];
   onSelectItem: (item: FoundItem) => void;
-  onOpenReportFound: () => void;
   onOpenLost: () => void;
-  onOpenNotifyMe: (category?: Category | 'all', searchQuery?: string) => void;
+  onOpenNotifyMe: () => void;
 }
 
-const CATEGORIES: { id: Category | 'all'; label: string }[] = [
-  { id: 'all', label: 'All Items' },
-  { id: 'WatCard', label: 'WatCard' },
-  { id: 'wallet', label: 'Wallets' },
-  { id: 'electronics', label: 'Tech & Electronics' },
-  { id: 'keys', label: 'Keys & Fobs' },
-  { id: 'bottle', label: 'Bottles & Mugs' },
-  { id: 'clothing', label: 'Apparel' },
-  { id: 'bag', label: 'Bags' },
-  { id: 'supplies', label: 'School supplies' },
-  { id: 'other', label: 'Other' },
+type ValueFilter = 'all' | 'valuable' | 'everyday';
+
+const VALUE_FILTERS: { id: ValueFilter; label: string }[] = [
+  { id: 'all', label: 'All items' },
+  { id: 'valuable', label: 'Valuable' },
+  { id: 'everyday', label: 'Non-valuable' },
 ];
 
 const DESK_FILTERS = [
@@ -51,25 +45,21 @@ const DATE_FILTERS = [
 export const StudentHome: React.FC<StudentHomeProps> = ({
   items,
   onSelectItem,
-  onOpenReportFound,
   onOpenLost,
   onOpenNotifyMe,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
+  const [selectedValue, setSelectedValue] = useState<ValueFilter>('all');
   const [selectedDesk, setSelectedDesk] = useState('All Desks');
   const [selectedDate, setSelectedDate] = useState('all');
-  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
 
   // Filter items: hide items that are already picked up
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      if (item.status === 'picked-up') return false;
-
-      // Category filter
-      if (selectedCategory !== 'all' && item.category !== selectedCategory) {
-        return false;
-      }
+      if (item.archivedAt) return false;
+      const valuable = categoryIsValuable(item.category, item.subcategory) || item.valuable;
+      if (selectedValue === 'valuable' && !valuable) return false;
+      if (selectedValue === 'everyday' && valuable) return false;
 
       // Desk filter
       if (selectedDesk !== 'All Desks' && item.desk !== selectedDesk) {
@@ -85,7 +75,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
       // Search query (search title, category, colour, public description, desk)
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const textToMatch = `${item.category} ${item.subcategory ?? ''} ${item.colour} ${item.desk}`.toLowerCase();
+        const textToMatch = `${item.itemCode ?? ''} ${item.category} ${item.subcategory ?? ''} ${item.colour} ${item.desk}`.toLowerCase();
         if (!textToMatch.includes(query)) {
           return false;
         }
@@ -93,15 +83,15 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
 
       return true;
     });
-  }, [items, selectedCategory, selectedDesk, selectedDate, searchQuery]);
+  }, [items, selectedValue, selectedDesk, selectedDate, searchQuery]);
 
   const activeFilterCount =
-    (selectedCategory !== 'all' ? 1 : 0) +
+    (selectedValue !== 'all' ? 1 : 0) +
     (selectedDesk !== 'All Desks' ? 1 : 0) +
     (selectedDate !== 'all' ? 1 : 0);
 
   const resetFilters = () => {
-    setSelectedCategory('all');
+    setSelectedValue('all');
     setSelectedDesk('All Desks');
     setSelectedDate('all');
     setSearchQuery('');
@@ -126,7 +116,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
             Check all desks in one place.
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-2">
-            Instant search across SLC, DC, Porter, PAC, and REV desks with verified ownership hand-off.
+            Find it here, go to that desk, and show the item code with your WATID. Staff check the ID and hand it over.
           </p>
         </div>
 
@@ -150,38 +140,30 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4" data-tour="actions">
+        <div className="mt-4" data-tour="actions">
           <button
             onClick={onOpenLost}
-            className="py-3 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors"
+            className="w-full sm:w-auto py-3 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors"
           >
             <Search className="w-4 h-4 text-amber-400" />
             <span>I lost something</span>
           </button>
-
-          <button
-            onClick={onOpenReportFound}
-            className="py-3 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors"
-          >
-            <PlusCircle className="w-4 h-4 text-slate-950" />
-            <span>I found something</span>
-          </button>
         </div>
 
-        {/* Category Horizontal Filter Chips */}
         <div className="mt-5 pt-4 border-t border-slate-100">
+          <p className="text-[11px] text-slate-500 mb-2">Valuable means keys, WatCards, electronics, and wallets.</p>
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {CATEGORIES.map((cat) => (
+            {VALUE_FILTERS.map((filter) => (
               <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
+                key={filter.id}
+                onClick={() => setSelectedValue(filter.id)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0 transition-all ${
-                  selectedCategory === cat.id
+                  selectedValue === filter.id
                     ? 'bg-slate-950 text-white shadow-2xs'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                {cat.label}
+                {filter.label}
               </button>
             ))}
           </div>
@@ -267,7 +249,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
 
             <div className="pt-2">
               <button
-                onClick={() => onOpenNotifyMe(selectedCategory, searchQuery)}
+                onClick={() => onOpenNotifyMe()}
                 className="w-full sm:w-auto py-3 px-6 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 mx-auto shadow-xs transition-colors"
               >
                 <BellRing className="w-4 h-4" />
@@ -294,7 +276,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
               </div>
             </div>
             <button
-              onClick={() => onOpenNotifyMe(selectedCategory, searchQuery)}
+              onClick={() => onOpenNotifyMe()}
               className="py-2 px-3.5 rounded-xl bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 font-bold text-xs whitespace-nowrap shrink-0 transition-colors"
             >
               Create "Notify Me" Alert

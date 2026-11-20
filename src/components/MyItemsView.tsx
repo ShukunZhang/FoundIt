@@ -1,11 +1,10 @@
 import React from 'react';
-import type { FoundItem, ItemMatch, LostReport, NotificationItem, UserProfile } from '../types';
+import type { FoundItem, ItemMatch, LostReport, NotificationItem } from '../types';
 import { InboxView } from './InboxView';
 import { MatchesView } from './MatchesView';
-import { MyClaimsView } from './MyClaimsView';
 import { MyReportsView } from './MyReportsView';
 
-export type MineSection = 'reports' | 'matches' | 'claims' | 'inbox';
+export type MineSection = 'reports' | 'matches' | 'inbox';
 
 interface MyItemsViewProps {
   section: MineSection;
@@ -13,14 +12,9 @@ interface MyItemsViewProps {
   reports: LostReport[];
   matches: ItemMatch[];
   items: FoundItem[];
-  user: UserProfile;
   notifications: NotificationItem[];
   unreadCount: number;
   onDecide: (matchId: string, status: 'confirmed' | 'rejected') => Promise<void>;
-  onClaim: (item: FoundItem) => void;
-  onShowPickupCode: (code: string, title: string, desk: string) => void;
-  onExplore: () => void;
-  onSignIn: () => void;
   onMarkAllAsRead: () => void;
   onNotificationAction: (note: NotificationItem) => void;
 }
@@ -28,7 +22,6 @@ interface MyItemsViewProps {
 const SECTIONS: Array<[MineSection, string]> = [
   ['reports', 'Lost reports'],
   ['matches', 'Matches'],
-  ['claims', 'Claims'],
   ['inbox', 'Inbox'],
 ];
 
@@ -38,14 +31,9 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
   reports,
   matches,
   items,
-  user,
   notifications,
   unreadCount,
   onDecide,
-  onClaim,
-  onShowPickupCode,
-  onExplore,
-  onSignIn,
   onMarkAllAsRead,
   onNotificationAction,
 }) => {
@@ -68,17 +56,13 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
         <MyReportsView reports={reports} matches={matches} onOpenMatches={() => onSection('matches')} />
       )}
       {section === 'matches' && (
-        <MatchesView matches={matches} items={items} reports={reports} onDecide={onDecide} onClaim={onClaim} />
-      )}
-      {section === 'claims' && (
-        <MyClaimsView items={items} user={user} onShowPickupCode={onShowPickupCode} onExplore={onExplore} onSignIn={onSignIn} />
+        <MatchesView matches={matches} items={items} reports={reports} onDecide={onDecide} />
       )}
       {section === 'inbox' && (
         <InboxView
           notifications={notifications}
           onMarkAllAsRead={onMarkAllAsRead}
           onNotificationAction={onNotificationAction}
-          onShowPickupCode={onShowPickupCode}
         />
       )}
     </div>

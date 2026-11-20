@@ -1,214 +1,125 @@
 import React, { useState } from 'react';
-import { 
-  Camera, 
-  Sparkles, 
-  CreditCard, 
-  CheckCircle2, 
-  MapPin, 
-  Lock, 
-  Clock, 
-  Archive,
-  Tag
-} from 'lucide-react';
+import { CheckCircle2, Clock, MapPin } from 'lucide-react';
 import { Category, FoundItem, PhotoScanResult } from '../types';
 import { CAMPUS_DESKS } from '../mockData';
+import { CATEGORY_OPTIONS, categoryIsValuable } from '../lib/categories';
 import { PhotoScanField } from './PhotoScanField';
 
 interface StaffLogItemProps {
   selectedDesk: string;
-  onItemLogged: (item: FoundItem & { photoFile?: File | null }) => Promise<{ matchedAlert: boolean; matchedWatcard: boolean }>;
+  staffName: string;
+  onItemLogged: (item: FoundItem & { photoFile?: File | null }) => Promise<{ itemCode: string }>;
 }
 
-const CATEGORIES: { id: Category; label: string; valuable: boolean }[] = [
-  { id: 'WatCard', label: 'WatCard', valuable: true },
-  { id: 'wallet', label: 'Wallet', valuable: true },
-  { id: 'electronics', label: 'Electronics', valuable: true },
-  { id: 'keys', label: 'Keys', valuable: false },
-  { id: 'bottle', label: 'Bottle / Mug', valuable: false },
-  { id: 'clothing', label: 'Clothing', valuable: false },
-  { id: 'bag', label: 'Bag', valuable: false },
-  { id: 'supplies', label: 'Supplies', valuable: false },
-  { id: 'other', label: 'Other', valuable: false },
-];
+const COLOURS = ['Black', 'White', 'Navy Blue', 'Grey', 'Yellow', 'Red', 'Green', 'Purple', 'Brown'];
 
-const COLOURS = [
-  'Black',
-  'White',
-  'Navy Blue',
-  'Grey',
-  'Yellow',
-  'Red',
-  'Green',
-  'Purple',
-  'Brown',
-];
-
-const STORAGE_PRESETS = [
-  'Safe Drawer 1',
-  'Safe Drawer 2',
-  'Shelf A-1',
-  'Shelf B-2',
-  'Key Box A',
-  'Bin Apparel-1',
-  'Lockbox Tech',
-];
-
-export const StaffLogItem: React.FC<StaffLogItemProps> = ({
-  selectedDesk,
-  onItemLogged,
-}) => {
-  const currentDesk = selectedDesk === 'All Desks' ? 'SLC Front Desk' : selectedDesk;
-
+export const StaffLogItem: React.FC<StaffLogItemProps> = ({ selectedDesk, staffName, onItemLogged }) => {
+  const lockedDesk = selectedDesk !== 'All Desks' ? selectedDesk : '';
   const [category, setCategory] = useState<Category>('WatCard');
   const [colour, setColour] = useState('Black');
-  const [storageSpot, setStorageSpot] = useState('Safe Drawer 1');
-  const [customStorage, setCustomStorage] = useState('');
-  const [watcardName, setWatcardName] = useState('Lily Lu');
-  const [watcardId, setWatcardId] = useState('20894123');
+  const [locationFound, setLocationFound] = useState('');
+  const [storageSpot, setStorageSpot] = useState('');
   const [notes, setNotes] = useState('');
+  const [watcardName, setWatcardName] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [desk, setDesk] = useState(currentDesk);
-  const [successResult, setSuccessResult] = useState<{
-    item: FoundItem;
-    matchedAlert: boolean;
-    matchedWatcard: boolean;
-  } | null>(null);
+  const [desk, setDesk] = useState(lockedDesk || 'SLC Front Desk');
+  const [itemCode, setItemCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  const isWatcard = category === 'WatCard';
-  const isValuable = CATEGORIES.find((c) => c.id === category)?.valuable || false;
+  const deskName = lockedDesk || desk;
+  const valuable = categoryIsValuable(category);
 
-  const handleLog = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const timestamp = '2026-11-06';
-    const finalStorage = customStorage.trim() || storageSpot;
-
-    const title = isWatcard
-      ? `WatCard - ${watcardName.trim() || 'Student'}`
-      : `${colour} ${category.charAt(0).toUpperCase() + category.slice(1)}`;
-
-    const newItem: FoundItem = {
-      id: `item-${Date.now()}`,
-      title,
-      category,
-      colour,
-      publicDescription: isWatcard
-        ? 'University of Waterloo WatCard (Undergraduate)'
-        : isValuable
-        ? `${colour} ${category}`
-        : `${colour} ${category} at ${desk}`,
-      detailedDescription: isWatcard
-        ? `WatCard belonging to ${watcardName.trim()}${watcardId ? `, ID: ${watcardId}` : ''}.`
-        : notes.trim() || `${colour} ${category} intake at ${desk}`,
-      desk,
-      dateLogged: timestamp,
-      daysAgo: 0,
-      status: 'available',
-      valuable: isValuable,
-      storageSpot: finalStorage,
-      watcardName: isWatcard ? watcardName.trim() : undefined,
-      photoFile,
-    };
-
-    const res = await onItemLogged(newItem);
-    setSuccessResult({
-      item: newItem,
-      matchedAlert: res.matchedAlert,
-      matchedWatcard: res.matchedWatcard,
-    });
+  const handleLog = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    const title = category === 'WatCard'
+      ? `WatCard${watcardName.trim() ? ` - ${watcardName.trim()}` : ''}`
+      : `${colour} ${category}`;
+    try {
+      const result = await onItemLogged({
+        id: '',
+        title,
+        category,
+        colour,
+        publicDescription: `${colour} ${category}`,
+        detailedDescription: notes.trim() || undefined,
+        desk: deskName,
+        dateLogged: new Date().toISOString().slice(0, 10),
+        daysAgo: 0,
+        status: 'available',
+        valuable,
+        storageSpot: storageSpot.trim() || undefined,
+        locationFound: locationFound.trim(),
+        watcardName: category === 'WatCard' ? watcardName.trim() : undefined,
+        photoFile,
+      });
+      setItemCode(result.itemCode);
+    } catch (logError) {
+      setError(logError instanceof Error ? logError.message : 'Could not log this item.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const resetForm = () => {
-    setSuccessResult(null);
+    setItemCode('');
+    setLocationFound('');
+    setStorageSpot('');
     setNotes('');
-    setCustomStorage('');
+    setWatcardName('');
+    setPhotoFile(null);
+    setError('');
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in pb-16">
-      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+    <div className="max-w-2xl mx-auto pb-16">
+      <div className="bg-white p-5 rounded-3xl border border-slate-200">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 gap-3">
           <div>
-            <h2 className="text-xl font-extrabold text-slate-950">Fast Item Intake</h2>
-            <p className="text-xs text-slate-500">
-              Minimal typing, auto-timestamp, and automatic student directory matching.
-            </p>
+            <h2 className="text-xl font-extrabold text-slate-950">Log a found item</h2>
+            <p className="text-xs text-slate-500">Staff desk and the date are filled in. You add the photo, details, and location.</p>
           </div>
-          <div className="bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-slate-500" />
-            <span>{new Date().toLocaleDateString()} (Auto)</span>
+          <div className="bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0">
+            <Clock className="w-3.5 h-3.5" />
+            <span>{new Date().toLocaleDateString()}</span>
           </div>
         </div>
 
-        {successResult ? (
-          <div className="text-center py-8 space-y-5">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-xs">
-              <CheckCircle2 className="w-9 h-9" />
-            </div>
-
+        {itemCode ? (
+          <div className="text-center py-8 space-y-4">
+            <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
             <div>
-              <h3 className="text-xl font-bold text-slate-950">
-                Item Successfully Logged & Tagged!
-              </h3>
-              <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
-                Stored in <strong>{successResult.item.storageSpot}</strong> at <strong>{successResult.item.desk}</strong>.
-              </p>
+              <p className="text-xs uppercase tracking-wider font-bold text-slate-500">Item code</p>
+              <p className="font-mono text-4xl font-black text-slate-950 mt-1">{itemCode}</p>
+              <p className="text-xs text-slate-600 mt-2">Write this on the tag. Students will show the same code at {deskName}.</p>
             </div>
-
-            {/* Special WatCard notification confirmation */}
-            {successResult.matchedWatcard && (
-              <div className="bg-amber-50 border border-amber-300 p-4 rounded-2xl text-left text-xs text-amber-950 space-y-1">
-                <p className="font-bold flex items-center gap-1.5">
-                  <CreditCard className="w-4 h-4 text-amber-700" />
-                  <span>Owner Notification Dispatched Instantly!</span>
-                </p>
-                <p className="text-[11px] text-amber-900 leading-relaxed">
-                  If a FoundIt account uses the name <strong>{successResult.item.watcardName}</strong>, that student gets an in-app notice that the card is at {successResult.item.desk}. No email is sent.
-                </p>
-              </div>
-            )}
-
-            {/* Matched student notify-me alert */}
-            {successResult.matchedAlert && (
-              <div className="bg-sky-50 border border-sky-300 p-4 rounded-2xl text-left text-xs text-sky-950 space-y-1">
-                <p className="font-bold flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-sky-700" />
-                  <span>Student "Notify Me" Match Triggered!</span>
-                </p>
-                <p className="text-[11px] text-sky-900 leading-relaxed">
-                  A matching lost item alert was detected. An in-app prompt: <em>"Is this yours?"</em> has been sent to the student.
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={resetForm}
-              className="py-3 px-6 rounded-xl bg-slate-950 text-white font-bold text-xs hover:bg-slate-800 transition-colors shadow-xs"
-            >
-              Log Another Item
+            <button type="button" onClick={resetForm} className="py-3 px-6 rounded-xl bg-slate-950 text-white font-bold text-xs">
+              Log another item
             </button>
           </div>
         ) : (
-          <form onSubmit={handleLog} className="pt-4 space-y-5">
-            {/* Desk Location Selector */}
-            <div>
-              <label className="block text-xs font-bold text-slate-900 mb-1">
-                Intake Desk Location
-              </label>
-              <select
-                value={desk}
-                onChange={(e) => setDesk(e.target.value)}
-                className="w-full text-xs font-semibold p-3 rounded-xl border border-slate-300 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400"
-              >
-                {Object.keys(CAMPUS_DESKS).map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+          <form onSubmit={(event) => void handleLog(event)} className="pt-4 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <p className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                <span className="block font-bold text-slate-900">Logged by</span>
+                <span className="text-slate-600">{staffName || 'Desk staff'}</span>
+              </p>
+              <p className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                <span className="block font-bold text-slate-900 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Desk</span>
+                {lockedDesk ? (
+                  <span className="text-slate-600">{lockedDesk}</span>
+                ) : (
+                  <select value={desk} onChange={(event) => setDesk(event.target.value)} className="mt-1 w-full bg-white border border-slate-300 rounded-lg p-2 font-semibold">
+                    {Object.keys(CAMPUS_DESKS).map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                )}
+              </p>
             </div>
 
-            {/* Photo-First Tap Target */}
             <PhotoScanField
               onScanned={(result: PhotoScanResult) => {
                 setPhotoFile(result.file);
@@ -218,149 +129,64 @@ export const StaffLogItem: React.FC<StaffLogItemProps> = ({
               }}
             />
 
-            {/* Category - Big Tap Targets */}
             <div>
-              <label className="block text-xs font-bold text-slate-900 mb-2">
-                Category (Big Tap Targets)
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {CATEGORIES.map((cat) => (
+              <p className="text-xs font-bold text-slate-900 mb-2">Category</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {CATEGORY_OPTIONS.map((option) => (
                   <button
-                    key={cat.id}
+                    key={option.id}
                     type="button"
-                    onClick={() => setCategory(cat.id)}
-                    className={`p-3 rounded-xl font-bold text-xs border text-left flex flex-col justify-between h-16 transition-all ${
-                      category === cat.id
-                        ? 'bg-slate-950 text-white border-slate-950 shadow-xs'
-                        : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100'
-                    }`}
+                    onClick={() => setCategory(option.id)}
+                    className={`p-3 rounded-xl text-xs font-bold text-left border ${category === option.id ? 'bg-slate-950 text-white border-slate-950' : 'bg-slate-50 text-slate-800 border-slate-200'}`}
                   >
-                    <span>{cat.label}</span>
-                    <span className="text-[10px] opacity-70">
-                      {cat.valuable ? '🔒 60d Valuable' : '30d Policy'}
-                    </span>
+                    <span className="block">{option.label}</span>
+                    <span className="text-[10px] opacity-70">{option.valuable ? 'Valuable' : 'Non-valuable'}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Special WatCard Student Lookup */}
-            {isWatcard && (
-              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-300 space-y-3">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-amber-800" />
-                  <span className="text-xs font-bold text-amber-950">
-                    WatCard Student Directory Integration
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                      Full Name on WatCard <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={watcardName}
-                      onChange={(e) => setWatcardName(e.target.value)}
-                      placeholder="e.g. Lily Lu"
-                      className="w-full text-xs p-2.5 rounded-xl border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                      Student ID (8 Digits)
-                    </label>
-                    <input
-                      type="text"
-                      value={watcardId}
-                      onChange={(e) => setWatcardId(e.target.value)}
-                      placeholder="e.g. 20894123"
-                      className="w-full text-xs p-2.5 rounded-xl border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] text-amber-800">
-                  Tip: Logging a card belonging to "Lily Lu" will immediately notify the sample student profile in Student View!
-                </p>
-              </div>
+            {category === 'WatCard' && (
+              <label className="block text-xs font-bold text-slate-900">
+                Name on the WatCard
+                <input value={watcardName} onChange={(event) => setWatcardName(event.target.value)} className="mt-1 w-full text-xs p-2.5 rounded-xl border border-slate-300 font-normal" />
+              </label>
             )}
 
-            {/* Colour Chips */}
             <div>
-              <label className="block text-xs font-bold text-slate-900 mb-1.5">
-                Primary Colour
-              </label>
+              <p className="text-xs font-bold text-slate-900 mb-1.5">Colour</p>
               <div className="flex flex-wrap gap-1.5">
-                {COLOURS.map((col) => (
+                {COLOURS.map((swatch) => (
                   <button
-                    key={col}
+                    key={swatch}
                     type="button"
-                    onClick={() => setColour(col)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                      colour === col
-                        ? 'bg-amber-400 text-slate-950 border-amber-500 font-bold shadow-xs'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
+                    onClick={() => setColour(swatch)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${colour === swatch ? 'bg-amber-400 border-amber-500 text-slate-950' : 'bg-slate-50 border-slate-200 text-slate-700'}`}
                   >
-                    {col}
+                    {swatch}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Storage Spot Picker */}
-            <div>
-              <label className="block text-xs font-bold text-slate-900 mb-1.5">
-                Storage Spot (Bin / Drawer / Shelf)
-              </label>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {STORAGE_PRESETS.map((spot) => (
-                  <button
-                    key={spot}
-                    type="button"
-                    onClick={() => {
-                      setStorageSpot(spot);
-                      setCustomStorage('');
-                    }}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all ${
-                      storageSpot === spot && !customStorage
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {spot}
-                  </button>
-                ))}
-              </div>
-              <input
-                type="text"
-                value={customStorage}
-                onChange={(e) => setCustomStorage(e.target.value)}
-                placeholder="Or type custom storage code (e.g. Locker 14, Bin C-4)..."
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
-              />
-            </div>
+            <label className="block text-xs font-bold text-slate-900">
+              Where it was found
+              <input required value={locationFound} onChange={(event) => setLocationFound(event.target.value)} placeholder="Building, room, or nearby landmark" className="mt-1 w-full text-xs p-2.5 rounded-xl border border-slate-300 font-normal" />
+            </label>
 
-            {/* Short Staff Notes */}
-            <div>
-              <label className="block text-xs font-bold text-slate-900 mb-1">
-                Internal Staff Notes <span className="text-slate-400 font-normal">(Private)</span>
-              </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Found on 2nd floor, contains cards and cash, slight scratch on corner"
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
-              />
-            </div>
+            <label className="block text-xs font-bold text-slate-900">
+              Kept in <span className="font-normal text-slate-400">(optional)</span>
+              <input value={storageSpot} onChange={(event) => setStorageSpot(event.target.value)} placeholder="Drawer, bin, or shelf" className="mt-1 w-full text-xs p-2.5 rounded-xl border border-slate-300 font-normal" />
+            </label>
 
-            <button
-              type="submit"
-              className="w-full py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-sm shadow-md transition-colors active:scale-[0.99]"
-            >
-              Log Item to {desk} (Save & Tag)
+            <label className="block text-xs font-bold text-slate-900">
+              Notes <span className="font-normal text-slate-400">(staff only)</span>
+              <input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full text-xs p-2.5 rounded-xl border border-slate-300 font-normal" />
+            </label>
+
+            {error && <p className="text-xs text-rose-700">{error}</p>}
+            <button disabled={busy} className="w-full py-3.5 rounded-2xl bg-amber-400 text-slate-950 font-extrabold text-sm">
+              {busy ? 'Saving…' : `Log item at ${deskName}`}
             </button>
           </form>
         )}

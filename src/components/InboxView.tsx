@@ -7,8 +7,7 @@ import {
   Clock, 
   Heart, 
   ArrowRight, 
-  CheckCheck,
-  QrCode
+  CheckCheck
 } from 'lucide-react';
 import { NotificationItem } from '../types';
 
@@ -16,14 +15,12 @@ interface InboxViewProps {
   notifications: NotificationItem[];
   onMarkAllAsRead: () => void;
   onNotificationAction: (notif: NotificationItem) => void;
-  onShowPickupCode: (code: string, itemTitle: string, deskName: string) => void;
 }
 
 export const InboxView: React.FC<InboxViewProps> = ({
   notifications,
   onMarkAllAsRead,
   onNotificationAction,
-  onShowPickupCode,
 }) => {
   const getIcon = (type: NotificationItem['type']) => {
     switch (type) {
@@ -65,7 +62,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
         <div>
           <h2 className="text-xl font-bold text-slate-950">Inbox Notifications</h2>
           <p className="text-xs text-slate-500">
-            Real-time updates regarding WatCard sightings, claim reviews, and matches.
+            WatCard notices and matches. Take the item code to the desk with your WATID.
           </p>
         </div>
         {notifications.some((n) => !n.read) && (
@@ -86,7 +83,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
           </div>
           <h3 className="font-bold text-slate-800 text-sm">No notifications yet</h3>
           <p className="text-xs text-slate-500">
-            When staff log a matching item or approve your claims, updates will arrive here.
+            When staff log something that matches your report, it shows up here.
           </p>
         </div>
       ) : (
@@ -125,22 +122,6 @@ export const InboxView: React.FC<InboxViewProps> = ({
 
                   {/* Contextual Action Button */}
                   <div className="flex items-center gap-2">
-                    {notif.pickupCode && (
-                      <button
-                        onClick={() =>
-                          onShowPickupCode(
-                            notif.pickupCode!,
-                            notif.title,
-                            'Assigned Desk'
-                          )
-                        }
-                        className="py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors"
-                      >
-                        <QrCode className="w-3.5 h-3.5" />
-                        <span>Show QR Pass ({notif.pickupCode})</span>
-                      </button>
-                    )}
-
                     {notif.actionText && (
                       <button
                         onClick={() => onNotificationAction(notif)}

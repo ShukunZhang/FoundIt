@@ -17,6 +17,11 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({ reports, matches, 
         const related = matches.filter((match) => match.lostReportId === report.id && match.status !== 'rejected');
         return (
           <article key={report.id} className="bg-white rounded-2xl border border-slate-200 p-4">
+            <div className="flex gap-3">
+              {report.imageUrl && (
+                <img src={report.imageUrl} alt="" className="h-16 w-16 rounded-xl object-cover bg-slate-100 shrink-0" />
+              )}
+              <div className="min-w-0 flex-1">
             <div className="flex justify-between gap-3">
               <h3 className="font-bold">{report.title}</h3>
               <span className="text-[11px] uppercase font-bold text-amber-800">{report.status}</span>
@@ -28,6 +33,8 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({ reports, matches, 
             {related.length > 0 && (
               <button type="button" onClick={onOpenMatches} className="mt-2 text-xs font-bold text-amber-800">Review matches</button>
             )}
+              </div>
+            </div>
           </article>
         );
       })}

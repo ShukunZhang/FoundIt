@@ -82,6 +82,9 @@ export interface FoundItem {
   imageBucket?: 'public-photos' | 'private-photos' | null;
   watcardName?: string;
   locationFound?: string;
+  itemCode?: string;
+  archivedAt?: string;
+  returnedWatid?: string;
   dropOffCode?: string;
   finderId?: string;
   claim?: ClaimRecord;

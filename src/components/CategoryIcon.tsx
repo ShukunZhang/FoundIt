@@ -11,7 +11,7 @@ import {
   Calculator,
   LucideIcon 
 } from 'lucide-react';
-import { Category } from '../types';
+import { Category, FoundItem } from '../types';
 
 export const CATEGORY_META: Record<Category, { label: string; icon: LucideIcon; bg: string; text: string }> = {
   WatCard: {
@@ -112,12 +112,34 @@ export const ItemPhotoPlaceholder: React.FC<{
         </div>
       )}
 
-      {/* Valuable badge in staff or neutral indicator */}
       {valuable && category !== 'WatCard' && (
         <div className="absolute top-2.5 right-2.5 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
           <span>Valuable</span>
         </div>
       )}
     </div>
+  );
+};
+
+export const ItemPhoto: React.FC<{
+  item: Pick<FoundItem, 'imageUrl' | 'category' | 'colour' | 'valuable' | 'title'>;
+  className?: string;
+}> = ({ item, className = 'h-40 w-full' }) => {
+  if (item.imageUrl) {
+    return (
+      <img
+        src={item.imageUrl}
+        alt={item.title || `${item.colour} ${item.category}`}
+        className={`object-cover bg-slate-100 ${className}`}
+      />
+    );
+  }
+  return (
+    <ItemPhotoPlaceholder
+      category={item.category}
+      colour={item.colour}
+      valuable={item.valuable}
+      className={className}
+    />
   );
 };

@@ -42,11 +42,18 @@ export async function fetchProfile(userId: string) {
   return data ? mapProfile(data) : null;
 }
 
+const STAFF_ITEM_COLUMNS = 'id, title, category, subcategory, colour, brand, public_description, distinctive_features, desk_id, logged_at, status, valuable, storage_spot, location_found, item_code, archived_at, returned_watid, drop_off_code, image_path, image_bucket, finder_id, desks(name)';
+const PUBLIC_ITEM_COLUMNS = 'id, category, subcategory, colour, desk_id, logged_at, status, valuable, item_code, image_path, image_bucket, desks(name)';
+
 export async function fetchItems(includePrivate: boolean) {
   const client = requireClient();
+  if (includePrivate) {
+    const purged = await client.rpc('purge_old_archive');
+    fail(purged.error);
+  }
   const result = includePrivate
-    ? await client.from('found_items').select('id, title, category, subcategory, colour, brand, public_description, distinctive_features, desk_id, logged_at, status, valuable, storage_spot, location_found, drop_off_code, image_path, image_bucket, finder_id, desks(name)').order('logged_at', { ascending: false })
-    : await client.from('found_items').select('id, category, subcategory, colour, desk_id, logged_at, status, valuable, desks(name)').order('logged_at', { ascending: false });
+    ? await client.from('found_items').select(STAFF_ITEM_COLUMNS).order('logged_at', { ascending: false })
+    : await client.from('found_items').select(PUBLIC_ITEM_COLUMNS).is('archived_at', null).order('logged_at', { ascending: false });
   fail(result.error);
   const secretByItem = new Map<string, { item_id: string; detailed_description: string | null; watcard_name: string | null }>();
   if (includePrivate) {
@@ -156,9 +163,8 @@ export async function createFoundItem(input: NewItemInput) {
       location_found: input.locationFound || null,
       image_path: input.imagePath || null,
       image_bucket: input.imageBucket || null,
-      status: input.status ?? 'available',
     })
-    .select('id, title, category, subcategory, colour, brand, public_description, distinctive_features, desk_id, logged_at, status, valuable, storage_spot, location_found, drop_off_code, image_path, image_bucket, finder_id, desks(name)')
+    .select(STAFF_ITEM_COLUMNS)
     .single();
   fail(error);
   if (!data) throw new Error('The item was not saved.');
@@ -277,6 +283,27 @@ export async function completePickup(itemId: string): Promise<void> {
     .in('status', ['pending', 'approved', 'contested'])
     .select('id');
   fail(claims.error);
+}
+
+/** Staff checked the student's WATID in person, then closed the item by its code. */
+export async function archiveFoundItem(itemCode: string, watid: string): Promise<void> {
+  const client = requireClient();
+  const code = itemCode.trim().toUpperCase();
+  const checkedId = watid.trim();
+  if (!code) throw new Error('Enter the item code.');
+  if (!checkedId) throw new Error('Enter the WATID you checked on the ID.');
+  const { data, error } = await client
+    .from('found_items')
+    .update({
+      archived_at: new Date().toISOString(),
+      returned_watid: checkedId,
+    })
+    .eq('item_code', code)
+    .is('archived_at', null)
+    .select('id')
+    .maybeSingle();
+  fail(error);
+  if (!data) throw new Error('No active item with that code is at your desk.');
 }
 
 export async function updateItemStatus(itemId: string, status: ItemStatus, storageSpot?: string, overrideNote?: string) {
