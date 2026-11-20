@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Lock, Clock } from 'lucide-react';
+import { ArrowRight, Clock, Lock, MapPin } from 'lucide-react';
 import { FoundItem } from '../types';
 import { studentItemLabel } from '../lib/studentView';
 import { ItemPhoto } from './CategoryIcon';
@@ -51,7 +51,9 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick }) => {
         </div>
         <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
           <span className="font-mono font-bold text-slate-900">{item.itemCode ?? 'Code pending'}</span>
-          <span className="font-semibold text-amber-700 group-hover:underline">View desk</span>
+          <span className="inline-flex items-center gap-1 font-semibold text-amber-700 group-hover:underline">
+            View desk <ArrowRight className="w-3.5 h-3.5" />
+          </span>
         </div>
       </div>
     </div>

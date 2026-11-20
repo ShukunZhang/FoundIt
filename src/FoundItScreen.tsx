@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Compass, FileCheck, LayoutDashboard, Package, PlusCircle, Scan, Tag } from 'lucide-react';
+import { Archive, Compass, FileCheck, Hand, LayoutDashboard, Package, PlusCircle, Tag } from 'lucide-react';
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
@@ -26,7 +26,7 @@ import { Navbar } from './components/Navbar';
 import { StudentHome } from './components/StudentHome';
 import { ItemDetailModal } from './components/ItemDetailModal';
 import { StaffDashboard } from './components/StaffDashboard';
-import { StaffInventory } from './components/StaffInventory';
+import { StaffInventory, type InventoryScope } from './components/StaffInventory';
 import { StaffLogItem } from './components/StaffLogItem';
 import { StaffHandoff } from './components/StaffScanCode';
 import { StaffArchive } from './components/StaffArchive';
@@ -35,6 +35,7 @@ import { GuideTour, type GuideStep } from './components/GuideTour';
 import { LostReportModal, type LostReportDraft } from './components/LostReportModal';
 import { ReturnTagsView } from './components/ReturnTagsView';
 import { MyItemsView, type MineSection } from './components/MyItemsView';
+import { TabBar } from './components/TabBar';
 
 const GUIDE_KEY = 'foundit.guide.v2';
 
@@ -55,6 +56,8 @@ export function FoundItScreen() {
   const [studentTab, setStudentTab] = useState<StudentTab>('explore');
   const [mineSection, setMineSection] = useState<MineSection>('reports');
   const [staffTab, setStaffTab] = useState<StaffTab>('dashboard');
+  const [inventoryScope, setInventoryScope] = useState<InventoryScope>('valuable');
+  const [handoffCode, setHandoffCode] = useState('');
   const [staffDesk, setStaffDesk] = useState(profile.deskName || 'All Desks');
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
@@ -262,19 +265,39 @@ export function FoundItScreen() {
             <TabBar
               tabs={[
                 ['dashboard', 'Dashboard', LayoutDashboard],
-                ['inventory', 'At desk', Package],
+                ['inventory', 'Inventory', Package],
                 ['archive', 'Archive', Archive],
                 ['log', 'Log item', PlusCircle],
-                ['handoff', 'Hand over', Scan],
+                ['handoff', 'Hand over', Hand],
               ]}
               active={staffTab}
               onChange={(tab) => setStaffTab(tab as StaffTab)}
               dark
             />
             {staffTab === 'dashboard' && (
-              <StaffDashboard items={items} selectedDesk={staffDesk} onSelectDesk={setStaffDesk} onNavigateTab={setStaffTab} />
+              <StaffDashboard
+                items={items}
+                selectedDesk={staffDesk}
+                onSelectDesk={setStaffDesk}
+                onNavigateTab={setStaffTab}
+                onOpenInventory={(scope) => {
+                  setInventoryScope(scope);
+                  setStaffTab('inventory');
+                }}
+                onLookupCode={(nextCode) => {
+                  setHandoffCode(nextCode.trim().toUpperCase());
+                  setStaffTab('handoff');
+                }}
+              />
             )}
-            {staffTab === 'inventory' && <StaffInventory items={items} selectedDesk={staffDesk} />}
+            {staffTab === 'inventory' && (
+              <StaffInventory
+                items={items}
+                selectedDesk={staffDesk}
+                scope={inventoryScope}
+                onScope={setInventoryScope}
+              />
+            )}
             {staffTab === 'archive' && <StaffArchive items={items} selectedDesk={staffDesk} />}
             {staffTab === 'log' && (
               <StaffLogItem
@@ -288,7 +311,9 @@ export function FoundItScreen() {
             )}
             {staffTab === 'handoff' && (
               <StaffHandoff
+                key={handoffCode}
                 items={items}
+                code={handoffCode}
                 onArchive={async (code, watid) => {
                   await archiveFoundItem(code, watid);
                   await refresh();
@@ -345,42 +370,6 @@ export function FoundItScreen() {
       )}
       <AuthModal key={`${authMode}-${authAudience}`} isOpen={authOpen} onClose={() => setAuthOpen(false)} choosingNewPassword={needsNewPassword} initialMode={authMode} audience={authAudience} />
       <GuideTour open={guideOpen && !isStaff} steps={STUDENT_GUIDE} onClose={closeGuide} />
-    </div>
-  );
-}
-
-function TabBar({
-  tabs,
-  active,
-  onChange,
-  dark = false,
-  dock = false,
-}: {
-  tabs: Array<[string, string, React.ComponentType<{ className?: string }>, string?]>;
-  active: string;
-  onChange: (tab: string) => void;
-  dark?: boolean;
-  dock?: boolean;
-}) {
-  return (
-    <div
-      className={dock
-        ? 'fixed bottom-0 inset-x-0 z-40 grid border-t border-slate-200 bg-white px-1 pt-1.5 pb-[max(0.45rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:mb-5 sm:rounded-2xl sm:border sm:p-1.5'
-        : 'grid gap-1 mb-5 w-full p-1.5 bg-white rounded-2xl border border-slate-200'}
-      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
-    >
-      {tabs.map(([id, label, Icon, tour]) => (
-        <button
-          key={id}
-          type="button"
-          data-tour={tour}
-          onClick={() => onChange(id)}
-          className={`min-w-0 py-2 px-1 text-[11px] sm:text-xs font-bold rounded-xl flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 text-center leading-tight ${active === id ? (dark ? 'bg-slate-950 text-white' : 'bg-amber-400 text-slate-950') : 'text-slate-600'}`}
-        >
-          <Icon className={`w-4 h-4 shrink-0 ${dock ? '' : 'hidden sm:block'}`} />
-          <span className={dock ? '' : 'truncate'}>{label}</span>
-        </button>
-      ))}
     </div>
   );
 }

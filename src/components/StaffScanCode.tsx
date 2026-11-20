@@ -1,33 +1,30 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Search, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Hand, Search } from 'lucide-react';
 import type { FoundItem } from '../types';
 import { ItemPhoto } from './CategoryIcon';
 
 interface StaffHandoffProps {
   items: FoundItem[];
+  code?: string;
   onArchive: (itemCode: string, watid: string) => Promise<void>;
 }
 
-export const StaffHandoff: React.FC<StaffHandoffProps> = ({ items, onArchive }) => {
-  const [codeInput, setCodeInput] = useState('');
+export const StaffHandoff: React.FC<StaffHandoffProps> = ({ items, code = '', onArchive }) => {
+  const [codeInput, setCodeInput] = useState(() => code.trim().toUpperCase());
   const [watid, setWatid] = useState('');
-  const [matched, setMatched] = useState<FoundItem | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const normalized = codeInput.trim().toUpperCase();
+  const matched = normalized
+    ? items.find((entry) => entry.itemCode?.toUpperCase() === normalized && !entry.archivedAt) ?? null
+    : null;
+  const lookupError = normalized && !matched ? `No waiting item uses ${normalized}.` : '';
 
   const lookup = (raw: string) => {
-    const code = raw.trim().toUpperCase();
-    setCodeInput(code);
+    setCodeInput(raw.trim().toUpperCase());
     setMessage('');
     setError('');
-    if (!code) {
-      setMatched(null);
-      return;
-    }
-    const item = items.find((entry) => entry.itemCode?.toUpperCase() === code && !entry.archivedAt);
-    setMatched(item ?? null);
-    if (!item) setError(`No waiting item uses ${code}.`);
   };
 
   const handOver = async () => {
@@ -38,7 +35,6 @@ export const StaffHandoff: React.FC<StaffHandoffProps> = ({ items, onArchive }) 
     try {
       await onArchive(matched.itemCode, watid);
       setMessage(`${matched.itemCode} is archived. The item was handed over.`);
-      setMatched(null);
       setCodeInput('');
       setWatid('');
     } catch (handoffError) {
@@ -68,7 +64,7 @@ export const StaffHandoff: React.FC<StaffHandoffProps> = ({ items, onArchive }) 
             />
           </div>
         </div>
-        {error && <p className="text-xs text-rose-700">{error}</p>}
+        {(error || lookupError) && <p className="text-xs text-rose-700">{error || lookupError}</p>}
         {message && (
           <p className="text-xs text-emerald-800 flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4" /> {message}
@@ -111,8 +107,9 @@ export const StaffHandoff: React.FC<StaffHandoffProps> = ({ items, onArchive }) 
             disabled={busy}
             className="w-full py-3 rounded-xl bg-slate-950 text-white text-sm font-bold flex items-center justify-center gap-2"
           >
-            <ShieldCheck className="w-4 h-4 text-amber-400" />
-            {busy ? 'Archiving…' : 'ID checked — archive item'}
+            <Hand className="w-4 h-4" />
+            {busy ? 'Handing over…' : 'Hand item over'}
+            {!busy && <ArrowRight className="w-4 h-4" />}
           </button>
         </form>
       )}
