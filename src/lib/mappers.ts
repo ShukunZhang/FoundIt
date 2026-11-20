@@ -58,6 +58,8 @@ interface ItemRow {
   distinctive_features?: string | null;
   desk_id: string;
   logged_at: string;
+  logged_by?: string | null;
+  logger?: { full_name: string } | { full_name: string }[] | null;
   status: ItemStatus;
   valuable: boolean;
   storage_spot?: string | null;
@@ -158,6 +160,8 @@ export function mapItem(row: ItemRow, secret?: SecretRow): FoundItem {
     desk: (Array.isArray(row.desks) ? row.desks[0]?.name : row.desks?.name) ?? row.desk_id,
     deskId: row.desk_id,
     dateLogged: row.logged_at.slice(0, 10),
+    loggedAt: row.logged_at,
+    loggedByName: (Array.isArray(row.logger) ? row.logger[0]?.full_name : row.logger?.full_name) ?? undefined,
     daysAgo: daysSince(row.logged_at),
     status: row.status,
     valuable: row.valuable,

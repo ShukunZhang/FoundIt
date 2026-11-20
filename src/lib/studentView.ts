@@ -42,6 +42,8 @@ export function forStudentView(item: FoundItem): FoundItem {
     dropOffCode: undefined,
     storageSpot: undefined,
     returnedWatid: undefined,
+    claimedName: undefined,
+    loggedByName: undefined,
     claim: undefined,
     contestedClaims: undefined,
   };
