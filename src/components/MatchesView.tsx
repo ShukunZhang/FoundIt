@@ -7,10 +7,9 @@ interface MatchesViewProps {
   items: FoundItem[];
   reports: LostReport[];
   onDecide: (matchId: string, status: 'confirmed' | 'rejected') => Promise<void>;
-  onClaim: (item: FoundItem) => void;
 }
 
-export const MatchesView: React.FC<MatchesViewProps> = ({ matches, items, reports, onDecide, onClaim }) => {
+export const MatchesView: React.FC<MatchesViewProps> = ({ matches, items, reports, onDecide }) => {
   const visible = matches.filter((match) => match.status !== 'rejected');
   if (visible.length === 0) {
     return <p className="text-sm text-slate-600 bg-white rounded-2xl p-6 border border-slate-200">No ranked matches yet. A match can come from a similar photo, or from the category plus a brand, detail, or place.</p>;
@@ -32,12 +31,14 @@ export const MatchesView: React.FC<MatchesViewProps> = ({ matches, items, report
             {match.differences.length > 0 && <p className="text-xs text-rose-800">{match.differences.join(' · ')}</p>}
             {match.status === 'pending' && (
               <div className="flex gap-2">
-                <button type="button" className="px-3 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold" onClick={() => void onDecide(match.id, 'confirmed')}>This is mine</button>
+                <button type="button" className="px-3 py-2 rounded-xl bg-slate-950 text-white text-xs font-bold" onClick={() => void onDecide(match.id, 'confirmed')}>Yes, this matches</button>
                 <button type="button" className="px-3 py-2 rounded-xl bg-slate-100 text-xs font-bold" onClick={() => void onDecide(match.id, 'rejected')}>Not mine</button>
               </div>
             )}
             {match.status === 'confirmed' && (
-              <button type="button" className="px-3 py-2 rounded-xl bg-amber-400 text-xs font-bold" onClick={() => onClaim(item)}>Continue to claim</button>
+              <p className="text-xs font-semibold text-slate-800">
+                Go to {item.desk}. Show item code <span className="font-mono">{item.itemCode ?? 'on the item'}</span> and your WATID.
+              </p>
             )}
           </article>
         );

@@ -10,7 +10,7 @@ export const CATEGORY_OPTIONS: CategoryOption[] = [
   { id: 'WatCard', label: 'WatCard', valuable: true },
   { id: 'wallet', label: 'Wallet', valuable: true },
   { id: 'electronics', label: 'Electronics', valuable: true },
-  { id: 'keys', label: 'Keys', valuable: false },
+  { id: 'keys', label: 'Keys', valuable: true },
   { id: 'bottle', label: 'Bottle', valuable: false },
   { id: 'clothing', label: 'Clothing', valuable: false },
   { id: 'bag', label: 'Bag', valuable: false },
@@ -30,9 +30,7 @@ export const SUBCATEGORIES: Record<Category, string[]> = {
   other: ['Other'],
 };
 
-export function categoryIsValuable(category: Category, subcategory?: string): boolean {
-  if (category === 'electronics') {
-    return subcategory !== 'Charger';
-  }
+/** Keys, WatCards, electronics, and wallets are valuable. Everything else is not. */
+export function categoryIsValuable(category: Category, _subcategory?: string): boolean {
   return CATEGORY_OPTIONS.find((option) => option.id === category)?.valuable ?? false;
 }

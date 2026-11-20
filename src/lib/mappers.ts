@@ -62,6 +62,9 @@ interface ItemRow {
   valuable: boolean;
   storage_spot?: string | null;
   location_found?: string | null;
+  item_code?: string | null;
+  archived_at?: string | null;
+  returned_watid?: string | null;
   drop_off_code?: string | null;
   image_path?: string | null;
   image_bucket?: 'public-photos' | 'private-photos' | null;
@@ -135,9 +138,10 @@ export function mapProfile(row: ProfileRow): UserProfile {
   };
 }
 
-export function publicPhotoUrl(bucket: string | null, path: string | null, valuable: boolean): string | undefined {
-  if (!path || bucket !== 'public-photos' || valuable) return undefined;
-  return requireClient().storage.from('public-photos').getPublicUrl(path).data.publicUrl;
+export function publicPhotoUrl(bucket: string | null, path: string | null): string | undefined {
+  if (!path) return undefined;
+  const name = bucket === 'private-photos' ? 'private-photos' : 'public-photos';
+  return requireClient().storage.from(name).getPublicUrl(path).data.publicUrl;
 }
 
 export function mapItem(row: ItemRow, secret?: SecretRow): FoundItem {
@@ -158,11 +162,14 @@ export function mapItem(row: ItemRow, secret?: SecretRow): FoundItem {
     status: row.status,
     valuable: row.valuable,
     storageSpot: row.storage_spot ?? undefined,
-    imageUrl: publicPhotoUrl(row.image_bucket ?? null, row.image_path ?? null, row.valuable),
+    imageUrl: publicPhotoUrl(row.image_bucket ?? null, row.image_path ?? null),
     imagePath: row.image_path ?? undefined,
     imageBucket: row.image_bucket ?? null,
     watcardName: secret?.watcard_name ?? undefined,
     locationFound: row.location_found ?? undefined,
+    itemCode: row.item_code ?? undefined,
+    archivedAt: row.archived_at ?? undefined,
+    returnedWatid: row.returned_watid ?? undefined,
     dropOffCode: row.drop_off_code ?? undefined,
     finderId: row.finder_id ?? undefined,
   };
@@ -188,7 +195,7 @@ export function mapClaim(row: ClaimRow): ClaimRecord {
 
 export function attachClaims(items: FoundItem[], claims: ClaimRecord[], userId: string, isStaff: boolean): FoundItem[] {
   return items.map((item) => {
-    const related = claims.filter((claim) => claim.itemId === item.id && claim.status !== 'rejected');
+    const related = claims.filter((claim) => claim.itemId === item.id && claim.status !== 'rejected' && claim.status !== 'withdrawn');
     const mine = related.find((claim) => claim.claimantId === userId);
     const visible = isStaff ? related : mine ? [mine] : [];
     return {
@@ -254,7 +261,7 @@ export function mapReport(row: {
     building: row.building,
     locationDetail: row.location_detail ?? undefined,
     lostAt: row.lost_at,
-    imageUrl: publicPhotoUrl('private-photos', null, true),
+    imageUrl: publicPhotoUrl('private-photos', row.image_path),
     status: row.status,
     createdAt: row.created_at,
   };

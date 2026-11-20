@@ -33,11 +33,14 @@ export const MyClaimsView: React.FC<MyClaimsViewProps> = ({
     (item) => item.claim && item.claim.claimantId === user.id
   );
 
+  const isClosed = (item: FoundItem) =>
+    item.status === 'picked-up' || item.status === 'donated' || item.claim?.status === 'completed' || item.claim?.status === 'withdrawn';
+
   const activeClaims = claimedItems.filter(
-    (item) => item.status === 'reserved' || item.status === 'under-review' || item.status === 'ready-pickup'
+    (item) => !isClosed(item) && (item.status === 'reserved' || item.status === 'under-review' || item.status === 'ready-pickup' || item.claim?.status === 'approved' || item.claim?.status === 'pending')
   );
 
-  const completedClaims = claimedItems.filter((item) => item.status === 'picked-up');
+  const completedClaims = claimedItems.filter(isClosed);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-12 animate-fade-in">

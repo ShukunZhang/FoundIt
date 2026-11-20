@@ -9,10 +9,7 @@ interface NavbarProps {
   onGoHome: () => void;
   unreadCount: number;
   onOpenInbox: () => void;
-  onOpenMap: () => void;
-  activeClaimsCount: number;
   pendingMatchCount: number;
-  onOpenMyClaims: () => void;
   onOpenReports: () => void;
   onOpenMatches: () => void;
   onOpenTags: () => void;
@@ -29,10 +26,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onGoHome,
   unreadCount,
   onOpenInbox,
-  onOpenMap,
-  activeClaimsCount,
   pendingMatchCount,
-  onOpenMyClaims,
   onOpenReports,
   onOpenMatches,
   onOpenTags,
@@ -149,16 +143,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
                         <div>
                           <p className="font-bold text-slate-900">{user.name}</p>
-                          <p className="text-[11px] text-slate-500">{user.role === 'student' ? `ID: ${user.studentId || 'student'}` : user.role}</p>
+                          <p className="text-[11px] text-slate-500">{user.role === 'student' ? `WATID: ${user.studentId}` : user.role}</p>
                         </div>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-1">{user.email}</p>
-                      <div className="mt-2 bg-slate-50 p-2 rounded-lg text-[11px] text-slate-600 flex justify-between items-center">
-                        <span>Weekly Instant Claims:</span>
-                        <span className="font-semibold text-slate-900">
-                          {user.maxWeeklyInstantClaims - user.claimsUsedThisWeek} of {user.maxWeeklyInstantClaims} left
-                        </span>
-                      </div>
                     </div>
 
                     <div className="pt-2 space-y-1">
@@ -200,19 +188,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <Tag className="w-3.5 h-3.5" />
                         <span>Return tags</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          onOpenMyClaims();
-                          setShowUserMenu(false);
-                        }}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 font-medium flex items-center justify-between"
-                      >
-                        <span>My claims & codes</span>
-                        <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-800">
-                          {activeClaimsCount} active
-                        </span>
                       </button>
 
                       <button
@@ -270,7 +245,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <X className="w-4 h-4" />
             </button>
           </div>
-          <button type="button" onClick={() => { onOpenMap(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100">Campus map</button>
           {onOpenGuide && (
             <button type="button" onClick={() => { onOpenGuide(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100">Guide</button>
           )}
@@ -282,7 +256,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {pendingMatchCount > 0 && <span className="text-[10px] bg-amber-200 px-1.5 py-0.5 rounded text-slate-800">{pendingMatchCount} new</span>}
               </button>
               <button type="button" onClick={() => { onOpenTags(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" /> Return tags</button>
-              <button type="button" onClick={() => { onOpenMyClaims(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100">My claims & codes</button>
               <button type="button" onClick={() => { onOpenInbox(); setMobileMenu(false); }} className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center justify-between">
                 <span className="flex items-center gap-1.5"><Bell className="w-3.5 h-3.5" /> Notifications</span>
                 {unreadCount > 0 && <span className="text-[10px] bg-amber-200 px-1.5 py-0.5 rounded text-slate-800">{unreadCount} new</span>}

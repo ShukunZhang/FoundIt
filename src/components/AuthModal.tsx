@@ -65,7 +65,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
       if (mode === 'forgot') {
         await requestPasswordReset(email);
-        setMessage('If an account uses that email, a reset link is on its way. Open it in this browser, then choose a new password.');
+        setMessage('If an account uses that email, a reset link is on its way. Open it on the FoundIt site, then choose a new password.');
         return;
       }
       if (mode === 'sign-in') {
@@ -75,11 +75,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       } else {
         if (forStaff && !staffCode.trim()) throw new Error('Enter the staff desk code.');
+        if (!forStaff && !studentId.trim()) throw new Error('Enter your WATID.');
         const result = await signUp({
           name,
           email,
           password,
-          studentId: forStaff ? '' : studentId,
+          studentId: forStaff ? '' : studentId.trim(),
           staffCode: forStaff ? staffCode : undefined,
         });
         if (result === 'confirm-email') {
@@ -117,14 +118,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <p className="text-xs text-slate-600">
             {forStaff
               ? 'Staff accounts are separate from student WatIAM sign-in.'
-              : 'Sign in so we can notify you and hold items for you.'}
+              : 'A WATID is required. Staff check it when you pick an item up.'}
           </p>
         )}
         {!choosingNewPassword && mode === 'sign-up' && (
           <>
             <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Full name" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
             {!forStaff && (
-              <input value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="Student number (optional)" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
+              <input required value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="WATID" aria-label="WATID" className="w-full text-sm p-3 rounded-xl border border-slate-300" />
             )}
           </>
         )}

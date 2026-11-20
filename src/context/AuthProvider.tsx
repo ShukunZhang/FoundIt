@@ -4,6 +4,18 @@ import { fetchProfile, redeemStaffCode } from '../lib/db';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 
 const PENDING_CODE_KEY = 'foundit.pendingStaffCode';
+const PRODUCTION_SITE = 'https://foundit-six-iota.vercel.app';
+
+/** Reset links must open the public site. A localhost redirect only works on the machine that sent the email. */
+function passwordResetRedirect(): string {
+  const configured = import.meta.env.VITE_SITE_URL;
+  if (typeof configured === 'string' && configured.startsWith('https://')) {
+    return configured.replace(/\/$/, '');
+  }
+  const origin = window.location.origin;
+  const local = origin.includes('localhost') || origin.includes('127.0.0.1');
+  return local ? PRODUCTION_SITE : origin;
+}
 
 export const GUEST_PROFILE: UserProfile = {
   id: '',
@@ -131,6 +143,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = useCallback(async (input: { name: string; email: string; password: string; studentId: string; staffCode?: string }) => {
     if (!supabase) throw new Error('Supabase is not configured.');
     setAuthError(null);
+    if (!input.staffCode?.trim() && !input.studentId.trim()) {
+      throw new Error('Enter your WATID.');
+    }
     const { error: registerError } = await supabase.rpc('register_account', {
       p_email: input.email,
       p_password: input.password,
@@ -168,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const requestPasswordReset = useCallback(async (email: string) => {
     if (!supabase) throw new Error('Supabase is not configured.');
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}${window.location.pathname}`,
+      redirectTo: passwordResetRedirect(),
     });
     if (error) throw new Error(error.message);
   }, []);

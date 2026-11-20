@@ -7,7 +7,7 @@ function leadingCapital(value: string): string {
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
-/** Colour and type only. Brand, photos, and marks stay off the student listing. */
+/** Colour and type, used as the short label next to the photo. */
 export function studentItemLabel(item: Pick<FoundItem, 'category' | 'subcategory' | 'colour'>): string {
   if (item.category === 'WatCard') return 'WatCard';
   const named = CATEGORY_OPTIONS.find((option) => option.id === item.category)?.label ?? item.category;
@@ -37,12 +37,12 @@ export function forStudentView(item: FoundItem): FoundItem {
     brand: undefined,
     detailedDescription: undefined,
     distinctiveFeatures: undefined,
-    imageUrl: undefined,
-    imagePath: undefined,
-    imageBucket: null,
     watcardName: undefined,
     locationFound: undefined,
     dropOffCode: undefined,
     storageSpot: undefined,
+    returnedWatid: undefined,
+    claim: undefined,
+    contestedClaims: undefined,
   };
 }

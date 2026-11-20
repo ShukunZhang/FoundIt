@@ -49,7 +49,7 @@ export interface ClaimRecord {
   claimantName: string;
   claimantEmail: string;
   claimedAt: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'contested';
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'contested' | 'withdrawn';
   pickupCode: string;
   holdExpiresAt: string;
   verificationAnswer?: string;
@@ -82,6 +82,9 @@ export interface FoundItem {
   imageBucket?: 'public-photos' | 'private-photos' | null;
   watcardName?: string;
   locationFound?: string;
+  itemCode?: string;
+  archivedAt?: string;
+  returnedWatid?: string;
   dropOffCode?: string;
   finderId?: string;
   claim?: ClaimRecord;
