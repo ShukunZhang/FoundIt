@@ -73,6 +73,8 @@ export interface FoundItem {
   deskId?: string;
   photoFile?: File | null;
   dateLogged: string;
+  loggedAt?: string;
+  loggedByName?: string;
   daysAgo: number;
   status: ItemStatus;
   valuable: boolean;
@@ -85,6 +87,7 @@ export interface FoundItem {
   itemCode?: string;
   archivedAt?: string;
   returnedWatid?: string;
+  claimedName?: string;
   dropOffCode?: string;
   finderId?: string;
   claim?: ClaimRecord;

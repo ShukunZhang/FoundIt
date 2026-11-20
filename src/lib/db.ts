@@ -42,7 +42,7 @@ export async function fetchProfile(userId: string) {
   return data ? mapProfile(data) : null;
 }
 
-const STAFF_ITEM_COLUMNS = 'id, title, category, subcategory, colour, brand, public_description, distinctive_features, desk_id, logged_at, status, valuable, storage_spot, location_found, item_code, archived_at, returned_watid, drop_off_code, image_path, image_bucket, finder_id, desks(name)';
+const STAFF_ITEM_COLUMNS = 'id, title, category, subcategory, colour, brand, public_description, distinctive_features, desk_id, logged_at, logged_by, logger:profiles!logged_by(full_name), status, valuable, storage_spot, location_found, item_code, archived_at, returned_watid, drop_off_code, image_path, image_bucket, finder_id, desks(name)';
 const PUBLIC_ITEM_COLUMNS = 'id, category, subcategory, colour, desk_id, logged_at, status, valuable, item_code, image_path, image_bucket, desks(name)';
 
 export async function fetchItems(includePrivate: boolean) {
@@ -60,7 +60,25 @@ export async function fetchItems(includePrivate: boolean) {
     const secrets = await client.from('found_item_secrets').select('*');
     for (const row of secrets.error ? [] : secrets.data ?? []) secretByItem.set(row.item_id, row);
   }
-  return (result.data ?? []).map((row) => mapItem(row, secretByItem.get(row.id)));
+  const names = includePrivate ? await claimantNames(client) : new Map<string, string>();
+  return (result.data ?? []).map((row) => {
+    const item = mapItem(row, secretByItem.get(row.id));
+    const watid = item.returnedWatid?.trim().toLowerCase();
+    return watid && names.has(watid) ? { ...item, claimedName: names.get(watid) } : item;
+  });
+}
+
+/** WATID typed at handoff, matched to a campus account when one exists. */
+async function claimantNames(client: ReturnType<typeof requireClient>): Promise<Map<string, string>> {
+  const { data, error } = await client.from('profiles').select('student_id, full_name');
+  const names = new Map<string, string>();
+  if (error || !data) return names;
+  for (const row of data) {
+    const watid = typeof row.student_id === 'string' ? row.student_id.trim().toLowerCase() : '';
+    const name = typeof row.full_name === 'string' ? row.full_name.trim() : '';
+    if (watid && name) names.set(watid, name);
+  }
+  return names;
 }
 
 export async function fetchClaims() {
