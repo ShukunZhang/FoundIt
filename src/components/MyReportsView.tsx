@@ -1,4 +1,5 @@
 import React from 'react';
+import { ArrowRight } from 'lucide-react';
 import type { ItemMatch, LostReport } from '../types';
 
 interface MyReportsViewProps {
@@ -31,7 +32,10 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({ reports, matches, 
             <p className="text-xs text-slate-500 mt-1">Lost {new Date(report.lostAt).toLocaleString()}</p>
             <p className="text-xs mt-2">{related.length} potential match{related.length === 1 ? '' : 'es'}</p>
             {related.length > 0 && (
-              <button type="button" onClick={onOpenMatches} className="mt-2 text-xs font-bold text-amber-800">Review matches</button>
+              <button type="button" onClick={onOpenMatches} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white">
+                Review matches
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             )}
               </div>
             </div>

@@ -6,12 +6,14 @@ import {
   X,
   Calendar,
 } from 'lucide-react';
-import { FoundItem } from '../types';
+import { CampusStats, FoundItem } from '../types';
+import { CampusStatsCard } from './CampusStats';
 import { categoryIsValuable } from '../lib/categories';
 import { ItemCard } from './ItemCard';
 
 interface StudentHomeProps {
   items: FoundItem[];
+  stats: CampusStats | null;
   onSelectItem: (item: FoundItem) => void;
   onOpenLost: () => void;
   onOpenNotifyMe: () => void;
@@ -44,6 +46,7 @@ const DATE_FILTERS = [
 
 export const StudentHome: React.FC<StudentHomeProps> = ({
   items,
+  stats,
   onSelectItem,
   onOpenLost,
   onOpenNotifyMe,
@@ -169,6 +172,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
           </div>
         </div>
       </section>
+
+      <CampusStatsCard stats={stats} />
 
       {/* Filter and Results Bar */}
       <div id="search-grid" className="space-y-4">

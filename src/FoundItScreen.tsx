@@ -1,21 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Compass, FileCheck, Hand, LayoutDashboard, Package, PlusCircle, Tag } from 'lucide-react';
+import { Archive, FileCheck, Hand, LayoutDashboard, Package, PlusCircle } from 'lucide-react';
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
   archiveFoundItem,
   createFoundItem,
   createLostReport,
-  createReturnTag,
+  fetchCampusStats,
   fetchDesks,
   fetchItems,
   fetchMatches,
   fetchNotifications,
   fetchReports,
-  fetchTags,
   markNotificationsRead,
-  scanReturnTag,
   setMatchStatus,
   uploadPhoto,
 } from './lib/db';
@@ -33,7 +31,6 @@ import { StaffArchive } from './components/StaffArchive';
 import { AuthModal } from './components/AuthModal';
 import { GuideTour, type GuideStep } from './components/GuideTour';
 import { LostReportModal, type LostReportDraft } from './components/LostReportModal';
-import { ReturnTagsView } from './components/ReturnTagsView';
 import { MyItemsView, type MineSection } from './components/MyItemsView';
 import { TabBar } from './components/TabBar';
 
@@ -45,7 +42,7 @@ const STUDENT_GUIDE: GuideStep[] = [
   { selector: '[data-tour="inbox"]', title: 'Notifications', body: 'The bell keeps match alerts and WatCard notices.' },
 ];
 
-type StudentTab = 'explore' | 'mine' | 'tags';
+type StudentTab = 'explore' | 'mine';
 type StaffTab = 'dashboard' | 'inventory' | 'archive' | 'log' | 'handoff';
 
 export function FoundItScreen() {
@@ -119,7 +116,7 @@ export function FoundItScreen() {
     queryFn: fetchMatches,
     enabled: signedIn && Boolean(profile.id),
   });
-  const tagQuery = useQuery({ queryKey: ['tags'], queryFn: fetchTags, enabled: signedIn });
+  const statsQuery = useQuery({ queryKey: ['campus-stats'], queryFn: fetchCampusStats, enabled: configured && !loading });
 
   const refresh = async () => {
     await queryClient.invalidateQueries();
@@ -159,8 +156,12 @@ export function FoundItScreen() {
       text: describeForMatch([
         draft.title,
         draft.category,
+        draft.subcategory,
         draft.colour,
+        draft.brand,
         draft.publicDescription,
+        draft.detailedDescription,
+        draft.distinctiveFeatures,
         draft.locationFound,
       ]),
     }).catch(() => undefined);
@@ -202,7 +203,6 @@ export function FoundItScreen() {
         pendingMatchCount={signedIn && profile.id ? (matchQuery.data ?? []).filter((match) => match.status === 'pending').length : 0}
         onOpenReports={() => openMine('reports')}
         onOpenMatches={() => openMine('matches')}
-        onOpenTags={() => setStudentTab('tags')}
         onOpenStaffSignIn={openStaffAuth}
         selectedStaffDesk={staffDesk}
         onStaffDeskChange={setStaffDesk}
@@ -214,22 +214,21 @@ export function FoundItScreen() {
           Items could not be loaded. Apply the latest database migration if item codes are not in the database yet.
         </p>
       )}
-      <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 ${isStaff ? 'pb-16' : 'pb-24 sm:pb-16'}`}>
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 ${!isStaff && signedIn ? 'pb-24 sm:pb-16' : 'pb-16'}`}>
         {!isStaff ? (
           <div>
-            <TabBar
-              dock
-              tabs={[
-                ['explore', 'Search', Compass],
-                ...(signedIn ? [['mine', 'My items', FileCheck] as [string, string, typeof Compass]] : []),
-                ['tags', 'Return tags', Tag],
-              ]}
-              active={studentTab}
-              onChange={(tab) => setStudentTab(tab as StudentTab)}
-            />
+            {signedIn && (
+              <TabBar
+                dock
+                tabs={[['mine', 'My items', FileCheck]]}
+                active={studentTab}
+                onChange={(tab) => setStudentTab(tab as StudentTab)}
+              />
+            )}
             {studentTab === 'explore' && (
               <StudentHome
                 items={studentItems}
+                stats={statsQuery.data ?? null}
                 onSelectItem={setSelected}
                 onOpenLost={() => signedIn ? setLostOpen(true) : openWatIam()}
                 onOpenNotifyMe={() => signedIn ? setLostOpen(true) : openWatIam()}
@@ -250,13 +249,6 @@ export function FoundItScreen() {
                   const item = studentItems.find((entry) => entry.id === note.relatedItemId);
                   if (item) setSelected(item);
                 }}
-              />
-            )}
-            {studentTab === 'tags' && (
-              <ReturnTagsView
-                tags={tagQuery.data ?? []}
-                onCreate={async (label, category, colour) => { await createReturnTag(label, category, colour); await refresh(); }}
-                onSimulateScan={async (code) => { await scanReturnTag(code); await refresh(); setBanner('The owner was notified. Their contact details stayed private.'); }}
               />
             )}
           </div>
@@ -314,6 +306,8 @@ export function FoundItScreen() {
                 key={handoffCode}
                 items={items}
                 code={handoffCode}
+                staffDeskId={profile.role === 'admin' ? null : profile.deskId}
+                staffDeskName={profile.deskName}
                 onArchive={async (code, watid) => {
                   await archiveFoundItem(code, watid);
                   await refresh();
@@ -352,10 +346,13 @@ export function FoundItScreen() {
             text: describeForMatch([
               draft.title,
               draft.category,
+              draft.subcategory,
               colour,
+              draft.brand,
               description,
               draft.distinctiveFeatures,
               building,
+              draft.locationDetail,
             ]),
           }).catch(() => undefined);
           await refresh();

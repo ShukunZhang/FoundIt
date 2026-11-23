@@ -1,4 +1,4 @@
-import type { Category, ItemStatus } from '../types';
+import type { CampusStats, Category, ItemStatus } from '../types';
 import {
   mapBuilding,
   mapClaim,
@@ -114,6 +114,29 @@ export async function fetchMatches() {
   const { data, error } = await client.from('item_matches').select('*').order('confidence', { ascending: false });
   if (error) return [];
   return (data ?? []).map(mapMatch);
+}
+
+export async function fetchCampusStats(): Promise<CampusStats | null> {
+  const client = requireClient();
+  const { data, error } = await client.rpc('campus_stats');
+  if (error || !data || typeof data !== 'object') return null;
+  const body = data as Record<string, unknown>;
+  const categories = Array.isArray(body.categories)
+    ? body.categories.flatMap((row) => {
+        if (!row || typeof row !== 'object') return [];
+        const record = row as Record<string, unknown>;
+        const category = typeof record.category === 'string' ? record.category : '';
+        const count = typeof record.count === 'number' ? record.count : 0;
+        return category ? [{ category, count }] : [];
+      })
+    : [];
+  return {
+    topCategory: typeof body.top_category === 'string' ? body.top_category : null,
+    topCount: typeof body.top_count === 'number' ? body.top_count : 0,
+    lostLastWeek: typeof body.lost_last_week === 'number' ? body.lost_last_week : 0,
+    returnedTotal: typeof body.returned_total === 'number' ? body.returned_total : 0,
+    categories,
+  };
 }
 
 export async function fetchTags() {
@@ -321,7 +344,7 @@ export async function archiveFoundItem(itemCode: string, watid: string): Promise
     .select('id')
     .maybeSingle();
   fail(error);
-  if (!data) throw new Error('No active item with that code is at your desk.');
+  if (!data) throw new Error('That code is not an active item at your desk.');
 }
 
 export async function updateItemStatus(itemId: string, status: ItemStatus, storageSpot?: string, overrideNote?: string) {

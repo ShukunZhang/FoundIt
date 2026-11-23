@@ -181,6 +181,19 @@ export interface TimelineEvent {
   createdAt: string;
 }
 
+export interface CampusCategoryCount {
+  category: string;
+  count: number;
+}
+
+export interface CampusStats {
+  topCategory: string | null;
+  topCount: number;
+  lostLastWeek: number;
+  returnedTotal: number;
+  categories: CampusCategoryCount[];
+}
+
 export interface ItemFeatures {
   title?: string;
   category?: Category;

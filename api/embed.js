@@ -49,9 +49,11 @@ export default async function handler(req, res) {
       return;
     }
     parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
-  } else if (text.length >= 3) {
-    parts.push({ text: text.slice(0, 2000) });
-  } else {
+  }
+  if (text.length >= 3) {
+    parts.push({ text: `Structured lost-and-found record: ${text.slice(0, 2000)}` });
+  }
+  if (parts.length === 0) {
     json(res, 400, { available: false, error: 'Expected a photo or a description' });
     return;
   }

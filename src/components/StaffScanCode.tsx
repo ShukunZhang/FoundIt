@@ -3,13 +3,35 @@ import { ArrowRight, CheckCircle2, Hand, Search } from 'lucide-react';
 import type { FoundItem } from '../types';
 import { ItemPhoto } from './CategoryIcon';
 
+function handoffNotice(
+  item: FoundItem | null,
+  code: string,
+  deskId: string | null,
+  deskName: string | null,
+): string {
+  if (!code) return '';
+  if (!item) return `No waiting item uses ${code}.`;
+  if (deskId && item.deskId && item.deskId !== deskId) {
+    return `${item.itemCode} is at ${item.desk}. This account can hand over items at ${deskName || 'your desk'} only.`;
+  }
+  return '';
+}
+
 interface StaffHandoffProps {
   items: FoundItem[];
   code?: string;
+  staffDeskId?: string | null;
+  staffDeskName?: string | null;
   onArchive: (itemCode: string, watid: string) => Promise<void>;
 }
 
-export const StaffHandoff: React.FC<StaffHandoffProps> = ({ items, code = '', onArchive }) => {
+export const StaffHandoff: React.FC<StaffHandoffProps> = ({
+  items,
+  code = '',
+  staffDeskId = null,
+  staffDeskName = null,
+  onArchive,
+}) => {
   const [codeInput, setCodeInput] = useState(() => code.trim().toUpperCase());
   const [watid, setWatid] = useState('');
   const [message, setMessage] = useState('');
@@ -19,7 +41,8 @@ export const StaffHandoff: React.FC<StaffHandoffProps> = ({ items, code = '', on
   const matched = normalized
     ? items.find((entry) => entry.itemCode?.toUpperCase() === normalized && !entry.archivedAt) ?? null
     : null;
-  const lookupError = normalized && !matched ? `No waiting item uses ${normalized}.` : '';
+  const atMyDesk = !matched || !staffDeskId || !matched.deskId || matched.deskId === staffDeskId;
+  const lookupError = handoffNotice(matched, normalized, staffDeskId, staffDeskName);
 
   const lookup = (raw: string) => {
     setCodeInput(raw.trim().toUpperCase());
@@ -72,7 +95,7 @@ export const StaffHandoff: React.FC<StaffHandoffProps> = ({ items, code = '', on
         )}
       </div>
 
-      {matched && (
+      {matched && atMyDesk && (
         <form
           onSubmit={(event) => {
             event.preventDefault();

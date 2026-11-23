@@ -22,6 +22,9 @@ export const StaffLogItem: React.FC<StaffLogItemProps> = ({ selectedDesk, staffN
   const [notes, setNotes] = useState('');
   const [watcardName, setWatcardName] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [subcategory, setSubcategory] = useState('');
+  const [brand, setBrand] = useState('');
+  const [parsedDetails, setParsedDetails] = useState('');
   const [desk, setDesk] = useState(lockedDesk || 'SLC Front Desk');
   const [itemCode, setItemCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -43,8 +46,11 @@ export const StaffLogItem: React.FC<StaffLogItemProps> = ({ selectedDesk, staffN
         title,
         category,
         colour,
-        publicDescription: `${colour} ${category}`,
-        detailedDescription: notes.trim() || undefined,
+        subcategory: subcategory || undefined,
+        brand: brand || undefined,
+        publicDescription: parsedDetails || notes.trim() || `${colour} ${category}`,
+        distinctiveFeatures: parsedDetails || undefined,
+        detailedDescription: notes.trim() || parsedDetails || undefined,
         desk: deskName,
         dateLogged: new Date().toISOString().slice(0, 10),
         daysAgo: 0,
@@ -70,6 +76,9 @@ export const StaffLogItem: React.FC<StaffLogItemProps> = ({ selectedDesk, staffN
     setNotes('');
     setWatcardName('');
     setPhotoFile(null);
+    setSubcategory('');
+    setBrand('');
+    setParsedDetails('');
     setError('');
   };
 
@@ -125,7 +134,11 @@ export const StaffLogItem: React.FC<StaffLogItemProps> = ({ selectedDesk, staffN
                 setPhotoFile(result.file);
                 if (result.colour) setColour(result.colour);
                 if (result.category) setCategory(result.category);
+                if (result.subcategory) setSubcategory(result.subcategory);
+                if (result.brand) setBrand(result.brand);
+                const detail = [result.description, result.distinctiveFeatures].filter(Boolean).join('. ');
                 if (result.description) setNotes(result.description);
+                if (detail) setParsedDetails(detail);
                 if (result.locationDetail) setLocationFound(result.locationDetail);
               }}
             />
