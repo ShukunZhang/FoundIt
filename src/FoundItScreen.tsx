@@ -182,7 +182,7 @@ export function FoundItScreen() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-dvh">
       <Navbar
         currentView={isStaff ? 'staff' : 'student'}
         user={profile}
@@ -214,7 +214,7 @@ export function FoundItScreen() {
           Items could not be loaded. Apply the latest database migration if item codes are not in the database yet.
         </p>
       )}
-      <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 ${!isStaff && signedIn ? 'pb-24 sm:pb-16' : 'pb-16'}`}>
+      <main className={`max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 ${!isStaff && signedIn ? 'pb-28 sm:pb-16' : 'pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-16'}`}>
         {!isStaff ? (
           <div>
             {signedIn && (
