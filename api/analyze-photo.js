@@ -1,4 +1,4 @@
-const CATEGORIES = ['WatCard', 'wallet', 'electronics', 'keys', 'bottle', 'clothing', 'bag', 'supplies', 'other'];
+import { CATEGORIES, itemFieldPrompt, sanitizeItem } from './item-fields.js';
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -35,14 +35,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const prompt = [
-    'You identify a lost-and-found item from a photo.',
-    'Reply with JSON only, no markdown, using these keys:',
-    'category (one of WatCard, wallet, electronics, keys, bottle, clothing, bag, supplies, other),',
-    'subcategory, colour, brand, distinctiveFeatures, description.',
-    'Do not invent a person name, student number, or card number.',
-    'If a field is unclear, use an empty string.',
-  ].join(' ');
+  const prompt = itemFieldPrompt('photo');
 
   const gemini = await fetch(
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
@@ -72,16 +65,11 @@ export default async function handler(req, res) {
   const result = await gemini.json();
   const text = result?.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
   try {
-    const parsed = JSON.parse(text);
-    const category = CATEGORIES.includes(parsed.category) ? parsed.category : 'other';
+    const fields = sanitizeItem(JSON.parse(text));
     json(res, 200, {
       available: true,
-      category,
-      subcategory: String(parsed.subcategory || ''),
-      colour: String(parsed.colour || ''),
-      brand: String(parsed.brand || ''),
-      distinctiveFeatures: String(parsed.distinctiveFeatures || ''),
-      description: String(parsed.description || ''),
+      ...fields,
+      category: fields.category || (CATEGORIES.includes('other') ? 'other' : ''),
     });
   } catch {
     json(res, 200, { available: false });

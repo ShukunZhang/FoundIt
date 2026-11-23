@@ -4,6 +4,7 @@ import path from 'path';
 import {defineConfig, loadEnv, type Plugin} from 'vite';
 import analyzePhoto from './api/analyze-photo.js';
 import embed from './api/embed.js';
+import extractItem from './api/extract-item.js';
 
 /** Serves the Gemini routes during `npm run dev`. Production uses the Vercel functions. */
 function localApi(env: Record<string, string>): Plugin {
@@ -22,6 +23,7 @@ function localApi(env: Record<string, string>): Plugin {
       };
       mount('/api/embed', embed);
       mount('/api/analyze-photo', analyzePhoto);
+      mount('/api/extract-item', extractItem);
     },
   };
 }

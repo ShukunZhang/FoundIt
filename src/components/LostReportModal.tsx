@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { BellRing, CheckCircle2, X } from 'lucide-react';
-import type { Category, PhotoScanResult } from '../types';
+import type { Category, ItemFeatures, PhotoScanResult } from '../types';
 import { CATEGORY_OPTIONS, SUBCATEGORIES } from '../lib/categories';
 import { PhotoScanField } from './PhotoScanField';
+import { VoiceDescribeField } from './VoiceDescribeField';
 
 export interface LostReportDraft {
   title: string;
@@ -91,17 +92,36 @@ export const LostReportModal: React.FC<LostReportModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
+  const applyFeatures = (features: ItemFeatures, photo?: File | null) => {
+    setDraft((current) => {
+      const category = features.category || current.category;
+      const options = category ? SUBCATEGORIES[category] : [];
+      const requested = features.subcategory ?? '';
+      const subcategory = options.includes(requested)
+        ? requested
+        : options.includes(current.subcategory)
+          ? current.subcategory
+          : '';
+      return {
+        ...current,
+        photo: photo === undefined ? current.photo : photo,
+        title: features.title || current.title,
+        category,
+        subcategory,
+        colour: features.colour || current.colour,
+        brand: features.brand || current.brand,
+        description: features.description || current.description,
+        distinctiveFeatures: features.distinctiveFeatures || current.distinctiveFeatures,
+        privateDetails: features.privateDetails || current.privateDetails,
+        building: features.building || current.building,
+        locationDetail: features.locationDetail || current.locationDetail,
+        lostAt: features.lostAt || current.lostAt,
+      };
+    });
+  };
+
   const applyScan = (result: PhotoScanResult) => {
-    setDraft((current) => ({
-      ...current,
-      photo: result.file,
-      colour: result.colour || current.colour,
-      category: result.category ?? current.category,
-      subcategory: result.subcategory || current.subcategory,
-      brand: result.brand || current.brand,
-      distinctiveFeatures: result.distinctiveFeatures || current.distinctiveFeatures,
-      description: result.description || current.description,
-    }));
+    applyFeatures(result, result.file);
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -176,8 +196,9 @@ export const LostReportModal: React.FC<LostReportModalProps> = ({ isOpen, onClos
         ) : (
           <form onSubmit={(event) => void submit(event)} className="mt-3 space-y-3">
             <p className="text-[11px] text-slate-500">
-              Only the name and category are required. The rest helps matching, and you can leave it blank.
+              Describe it by voice or add a photo. The fields fill in for you, and only the name and category are required.
             </p>
+            <VoiceDescribeField onExtracted={(features) => applyFeatures(features)} />
             <PhotoScanField onScanned={applyScan} />
             <FieldLabel label="Item name" required>
               <input

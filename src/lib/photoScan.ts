@@ -1,5 +1,5 @@
-import type { Category, PhotoScanResult } from '../types';
-import { CATEGORY_OPTIONS } from './categories';
+import type { PhotoScanResult } from '../types';
+import { readItemFeatures } from './itemExtract';
 
 const COLOUR_SAMPLES: Array<{ name: string; r: number; g: number; b: number }> = [
   { name: 'Black', r: 25, g: 25, b: 25 },
@@ -94,13 +94,9 @@ function dominantColour(dataUrl: string): Promise<string> {
   });
 }
 
-function isCategory(value: unknown): value is Category {
-  return CATEGORY_OPTIONS.some((option) => option.id === value);
-}
-
 /**
  * Reads the main colour from the photo. If a Gemini key is configured on the
- * server, the scan also fills category, brand, and distinctive details.
+ * server, the scan also fills the item fields from the picture.
  */
 export async function scanPhoto(file: File): Promise<PhotoScanResult> {
   const compressed = await compressImage(file);
@@ -120,25 +116,16 @@ export async function scanPhoto(file: File): Promise<PhotoScanResult> {
       body: JSON.stringify({ image: compressed.dataUrl }),
     });
     if (!response.ok) return base;
-    const body = (await response.json()) as {
-      available?: boolean;
-      category?: string;
-      subcategory?: string;
-      colour?: string;
-      brand?: string;
-      distinctiveFeatures?: string;
-      description?: string;
-    };
+    const body = (await response.json()) as Record<string, unknown>;
     if (!body.available) return base;
+    const features = readItemFeatures(body);
+    const title = features.title || [features.colour || colour, features.category].filter(Boolean).join(' ');
     return {
       ...base,
+      ...features,
       source: 'gemini',
-      category: isCategory(body.category) ? body.category : undefined,
-      subcategory: body.subcategory,
-      colour: body.colour || colour,
-      brand: body.brand,
-      distinctiveFeatures: body.distinctiveFeatures,
-      description: body.description,
+      colour: features.colour || colour,
+      title: title || undefined,
     };
   } catch {
     return base;

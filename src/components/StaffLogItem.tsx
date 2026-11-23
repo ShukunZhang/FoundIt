@@ -126,6 +126,7 @@ export const StaffLogItem: React.FC<StaffLogItemProps> = ({ selectedDesk, staffN
                 if (result.colour) setColour(result.colour);
                 if (result.category) setCategory(result.category);
                 if (result.description) setNotes(result.description);
+                if (result.locationDetail) setLocationFound(result.locationDetail);
               }}
             />
 

@@ -181,13 +181,22 @@ export interface TimelineEvent {
   createdAt: string;
 }
 
-export interface PhotoScanResult {
-  colour: string;
+export interface ItemFeatures {
+  title?: string;
   category?: Category;
   subcategory?: string;
+  colour?: string;
   brand?: string;
-  distinctiveFeatures?: string;
   description?: string;
+  distinctiveFeatures?: string;
+  privateDetails?: string;
+  building?: string;
+  locationDetail?: string;
+  lostAt?: string;
+}
+
+export interface PhotoScanResult extends ItemFeatures {
+  colour: string;
   source: 'colour' | 'gemini';
   file: File;
   previewUrl: string;

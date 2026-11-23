@@ -21,8 +21,8 @@ export const PhotoScanField: React.FC<PhotoScanFieldProps> = ({ onScanned }) => 
       const result = await scanPhoto(file);
       setPreview(result.previewUrl);
       setNote(result.source === 'gemini'
-        ? 'Photo scanned. Confirm the suggested category, colour, and details before saving.'
-        : `Main colour looks ${result.colour}. Confirm the category yourself. A Gemini key is not configured on the server.`);
+        ? 'Photo scanned. The form is filled from the picture. Check it before saving.'
+        : `Main colour looks ${result.colour}. The other fields stay blank until a model key is configured.`);
       onScanned(result);
     } catch (scanError) {
       setError(scanError instanceof Error ? scanError.message : 'Could not read that photo.');
