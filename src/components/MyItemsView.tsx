@@ -14,6 +14,7 @@ interface MyItemsViewProps {
   items: FoundItem[];
   notifications: NotificationItem[];
   unreadCount: number;
+  onBack: () => void;
   onDecide: (matchId: string, status: 'confirmed' | 'rejected') => Promise<void>;
   onMarkAllAsRead: () => void;
   onNotificationAction: (note: NotificationItem) => void;
@@ -33,12 +34,16 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
   items,
   notifications,
   unreadCount,
+  onBack,
   onDecide,
   onMarkAllAsRead,
   onNotificationAction,
 }) => {
   return (
     <div className="space-y-4">
+      <button type="button" onClick={onBack} className="text-xs font-bold text-slate-700 underline">
+        Back to search
+      </button>
       <div className="flex flex-wrap gap-2">
         {SECTIONS.map(([id, label]) => (
           <button

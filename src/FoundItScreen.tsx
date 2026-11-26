@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, FileCheck, Hand, LayoutDashboard, Package, PlusCircle } from 'lucide-react';
+import { Archive, Hand, LayoutDashboard, Package, PlusCircle } from 'lucide-react';
 import { useAuth } from './context/AuthProvider';
 import { categoryIsValuable } from './lib/categories';
 import {
@@ -214,17 +214,9 @@ export function FoundItScreen() {
           Items could not be loaded. Apply the latest database migration if item codes are not in the database yet.
         </p>
       )}
-      <main className={`max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 ${!isStaff && signedIn ? 'pb-28 sm:pb-16' : 'pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-16'}`}>
+      <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-16">
         {!isStaff ? (
           <div>
-            {signedIn && (
-              <TabBar
-                dock
-                tabs={[['mine', 'My items', FileCheck]]}
-                active={studentTab}
-                onChange={(tab) => setStudentTab(tab as StudentTab)}
-              />
-            )}
             {studentTab === 'explore' && (
               <StudentHome
                 items={studentItems}
@@ -238,6 +230,7 @@ export function FoundItScreen() {
               <MyItemsView
                 section={mineSection}
                 onSection={setMineSection}
+                onBack={() => setStudentTab('explore')}
                 reports={reportQuery.data ?? []}
                 matches={matchQuery.data ?? []}
                 items={studentItems}
@@ -357,7 +350,7 @@ export function FoundItScreen() {
           }).catch(() => undefined);
           await refresh();
           setMineSection('reports');
-          setStudentTab('mine');
+          setStudentTab('explore');
         }}
       />
       {needsNewPassword && !authOpen && (

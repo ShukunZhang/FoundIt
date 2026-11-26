@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Lock, MapPin } from 'lucide-react';
 import type { FoundItem } from '../types';
 import { categoryIsValuable } from '../lib/categories';
@@ -14,6 +14,12 @@ interface StaffInventoryProps {
 }
 
 type AgeTier = 'green' | 'yellow' | 'red';
+
+const AGE_COLUMNS: { id: AgeTier; title: string; detail: string; tone: string }[] = [
+  { id: 'green', title: 'Under 14 days', detail: 'Still fresh', tone: 'border-emerald-300 bg-emerald-50' },
+  { id: 'yellow', title: '14–29 days', detail: 'Getting old', tone: 'border-amber-300 bg-amber-50' },
+  { id: 'red', title: '30+ days', detail: 'Ready to clear', tone: 'border-rose-300 bg-rose-50' },
+];
 
 const SCOPES: { id: InventoryScope; label: string }[] = [
   { id: 'valuable', label: 'At desk' },
@@ -40,15 +46,12 @@ function ageLabel(item: FoundItem): string {
 }
 
 export const StaffInventory: React.FC<StaffInventoryProps> = ({ items, selectedDesk, scope, onScope }) => {
-  const [age, setAge] = useState<'all' | AgeTier>('all');
-  const waiting = items.filter(
-    (item) => !item.archivedAt && (selectedDesk === 'All Desks' || item.desk === selectedDesk),
-  );
-  const visible = waiting.filter((item) => {
+  const waiting = items.filter((item) => {
+    if (item.archivedAt) return false;
+    if (selectedDesk !== 'All Desks' && item.desk !== selectedDesk) return false;
     const valuable = isValuableItem(item);
     if (scope === 'valuable' && !valuable) return false;
     if (scope === 'everyday' && valuable) return false;
-    if (scope !== 'valuable' && age !== 'all' && ageTier(item.daysAgo) !== age) return false;
     return true;
   });
 
@@ -62,7 +65,8 @@ export const StaffInventory: React.FC<StaffInventoryProps> = ({ items, selectedD
           <p className="text-xs text-slate-500 mt-1">
             {scope === 'valuable'
               ? 'Keys, WatCards, electronics, and wallets stay here until a student shows the item code and WATID.'
-              : 'Green is under 14 days, yellow is 14–29 days, and red is 30 days or more. Clear non-valuable items when they turn red. Valuable items stay at the desk.'}
+              : 'Clear non-valuable items in the red column. Valuable items stay at the desk.'}
+            {' '}Under 14 days is green, 14–29 days is yellow, and 30 days or more is red.
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -79,65 +83,52 @@ export const StaffInventory: React.FC<StaffInventoryProps> = ({ items, selectedD
             </button>
           ))}
         </div>
-        {scope !== 'valuable' && (
-          <div className="flex flex-wrap gap-1.5">
-            {([
-              ['all', 'Any age'],
-              ['green', 'Under 14 days'],
-              ['yellow', '14–29 days'],
-              ['red', '30+ days'],
-            ] as const).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setAge(id)}
-                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg ${
-                  age === id ? 'bg-white border border-slate-300 text-slate-900' : 'text-slate-600'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
-      {visible.length === 0 ? (
-        <p className="text-sm text-slate-600 bg-white rounded-2xl border border-slate-200 p-6">Nothing in this list for the selected desk.</p>
-      ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
-          {visible.map((item) => {
-            const tier = ageTier(item.daysAgo);
-            const bar = tier === 'green' ? 'bg-emerald-500' : tier === 'yellow' ? 'bg-amber-500' : 'bg-rose-500';
-            return (
-              <article key={item.id} className="p-4 flex gap-3">
-                {scope !== 'valuable' && <span className={`w-1.5 self-stretch rounded-full ${bar}`} aria-hidden="true" />}
-                <ItemPhoto item={item} className="h-16 w-16 rounded-xl shrink-0" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-mono text-sm font-bold text-slate-950">{item.itemCode}</p>
-                    {isValuableItem(item) && (
-                      <span className="bg-slate-900 text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-0.5">
-                        <Lock className="w-2.5 h-2.5" /> Valuable
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900 mt-1">{item.title}</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {item.colour} {item.category}
-                    {item.storageSpot ? ` · Kept in ${item.storageSpot}` : ''}
-                  </p>
-                  <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-amber-600" />
-                    {item.desk}
-                    {item.locationFound ? ` · Found ${item.locationFound}` : ''}
-                    {` · ${ageLabel(item)}`}
-                  </p>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {AGE_COLUMNS.map((column) => {
+          const columnItems = waiting.filter((item) => ageTier(item.daysAgo) === column.id);
+          return (
+            <section key={column.id} className={`rounded-2xl border p-3 space-y-3 ${column.tone}`}>
+              <div>
+                <h3 className="text-sm font-bold text-slate-950">{column.title}</h3>
+                <p className="text-[11px] text-slate-600">{column.detail} · {columnItems.length}</p>
+              </div>
+              {columnItems.length === 0 ? (
+                <p className="text-xs text-slate-600 bg-white/80 rounded-xl p-3">No items in this column.</p>
+              ) : (
+                columnItems.map((item) => (
+                  <article key={item.id} className="bg-white rounded-xl border border-slate-200 p-3 flex gap-3">
+                    <ItemPhoto item={item} className="h-14 w-14 rounded-lg shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="font-mono text-sm font-bold text-slate-950">{item.itemCode}</p>
+                        {isValuableItem(item) && (
+                          <span className="bg-slate-900 text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-0.5">
+                            <Lock className="w-2.5 h-2.5" /> Valuable
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900 mt-1">{item.title}</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {item.colour} {item.category}
+                        {item.storageSpot ? ` · Kept in ${item.storageSpot}` : ''}
+                      </p>
+                      <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>
+                          {item.desk}
+                          {item.locationFound ? ` · Found ${item.locationFound}` : ''}
+                          {` · ${ageLabel(item)}`}
+                        </span>
+                      </p>
+                    </div>
+                  </article>
+                ))
+              )}
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 };
