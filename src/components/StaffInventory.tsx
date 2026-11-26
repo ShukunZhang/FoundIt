@@ -4,7 +4,7 @@ import type { FoundItem } from '../types';
 import { categoryIsValuable } from '../lib/categories';
 import { ItemPhoto } from './CategoryIcon';
 
-export type InventoryScope = 'valuable' | 'everyday' | 'all';
+export type InventoryScope = 'valuable' | 'everyday';
 
 interface StaffInventoryProps {
   items: FoundItem[];
@@ -22,9 +22,8 @@ const AGE_COLUMNS: { id: AgeTier; title: string; detail: string; tone: string }[
 ];
 
 const SCOPES: { id: InventoryScope; label: string }[] = [
-  { id: 'valuable', label: 'At desk' },
+  { id: 'valuable', label: 'Valuable' },
   { id: 'everyday', label: 'Non-valuable' },
-  { id: 'all', label: 'All items' },
 ];
 
 function isValuableItem(item: FoundItem): boolean {
@@ -45,6 +44,37 @@ function ageLabel(item: FoundItem): string {
   return `${days} · ready to clear`;
 }
 
+function InventoryCard({ item }: { item: FoundItem }) {
+  return (
+    <article className="bg-white rounded-xl border border-slate-200 p-3 flex gap-3">
+      <ItemPhoto item={item} className="h-14 w-14 rounded-lg shrink-0" />
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <p className="font-mono text-sm font-bold text-slate-950">{item.itemCode}</p>
+          {isValuableItem(item) && (
+            <span className="bg-slate-900 text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-0.5">
+              <Lock className="w-2.5 h-2.5" /> Valuable
+            </span>
+          )}
+        </div>
+        <h4 className="text-sm font-bold text-slate-900 mt-1">{item.title}</h4>
+        <p className="text-xs text-slate-500 mt-0.5">
+          {item.colour} {item.category}
+          {item.storageSpot ? ` · Kept in ${item.storageSpot}` : ''}
+        </p>
+        <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
+          <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <span>
+            {item.desk}
+            {item.locationFound ? ` · Found ${item.locationFound}` : ''}
+            {` · ${ageLabel(item)}`}
+          </span>
+        </p>
+      </div>
+    </article>
+  );
+}
+
 export const StaffInventory: React.FC<StaffInventoryProps> = ({ items, selectedDesk, scope, onScope }) => {
   const waiting = items.filter((item) => {
     if (item.archivedAt) return false;
@@ -60,13 +90,12 @@ export const StaffInventory: React.FC<StaffInventoryProps> = ({ items, selectedD
       <div className="bg-white p-5 rounded-3xl border border-slate-200 space-y-3">
         <div>
           <h2 className="text-lg font-bold text-slate-950">
-            {scope === 'valuable' ? 'At the desk' : scope === 'everyday' ? 'Non-valuable inventory' : 'All items'}
+            {scope === 'valuable' ? 'Valuable' : 'Non-valuable'}
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             {scope === 'valuable'
-              ? 'Keys, WatCards, electronics, and wallets stay here until a student shows the item code and WATID.'
-              : 'Clear non-valuable items in the red column. Valuable items stay at the desk.'}
-            {' '}Under 14 days is green, 14–29 days is yellow, and 30 days or more is red.
+              ? 'Keys, WatCards, electronics, and wallets stay at the desk until a student shows the item code and WATID.'
+              : 'Under 14 days is green, 14–29 days is yellow, and 30 days or more is red. Clear items in the red column.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -84,51 +113,35 @@ export const StaffInventory: React.FC<StaffInventoryProps> = ({ items, selectedD
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {AGE_COLUMNS.map((column) => {
-          const columnItems = waiting.filter((item) => ageTier(item.daysAgo) === column.id);
-          return (
-            <section key={column.id} className={`rounded-2xl border p-3 space-y-3 ${column.tone}`}>
-              <div>
-                <h3 className="text-sm font-bold text-slate-950">{column.title}</h3>
-                <p className="text-[11px] text-slate-600">{column.detail} · {columnItems.length}</p>
-              </div>
-              {columnItems.length === 0 ? (
-                <p className="text-xs text-slate-600 bg-white/80 rounded-xl p-3">No items in this column.</p>
-              ) : (
-                columnItems.map((item) => (
-                  <article key={item.id} className="bg-white rounded-xl border border-slate-200 p-3 flex gap-3">
-                    <ItemPhoto item={item} className="h-14 w-14 rounded-lg shrink-0" />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="font-mono text-sm font-bold text-slate-950">{item.itemCode}</p>
-                        {isValuableItem(item) && (
-                          <span className="bg-slate-900 text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-0.5">
-                            <Lock className="w-2.5 h-2.5" /> Valuable
-                          </span>
-                        )}
-                      </div>
-                      <h4 className="text-sm font-bold text-slate-900 mt-1">{item.title}</h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {item.colour} {item.category}
-                        {item.storageSpot ? ` · Kept in ${item.storageSpot}` : ''}
-                      </p>
-                      <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span>
-                          {item.desk}
-                          {item.locationFound ? ` · Found ${item.locationFound}` : ''}
-                          {` · ${ageLabel(item)}`}
-                        </span>
-                      </p>
-                    </div>
-                  </article>
-                ))
-              )}
-            </section>
-          );
-        })}
-      </div>
+      {scope === 'valuable' ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3">
+          <p className="text-[11px] text-slate-600">{waiting.length} at the desk</p>
+          {waiting.length === 0 ? (
+            <p className="text-xs text-slate-600 bg-slate-50 rounded-xl p-3">No valuable items at this desk.</p>
+          ) : (
+            waiting.map((item) => <InventoryCard key={item.id} item={item} />)
+          )}
+        </section>
+      ) : (
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {AGE_COLUMNS.map((column) => {
+            const columnItems = waiting.filter((item) => ageTier(item.daysAgo) === column.id);
+            return (
+              <section key={column.id} className={`rounded-2xl border p-3 space-y-3 ${column.tone}`}>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-950">{column.title}</h3>
+                  <p className="text-[11px] text-slate-600">{column.detail} · {columnItems.length}</p>
+                </div>
+                {columnItems.length === 0 ? (
+                  <p className="text-xs text-slate-600 bg-white/80 rounded-xl p-3">No items in this column.</p>
+                ) : (
+                  columnItems.map((item) => <InventoryCard key={item.id} item={item} />)
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

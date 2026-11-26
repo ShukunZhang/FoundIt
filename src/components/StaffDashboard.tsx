@@ -56,13 +56,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         <div className="mt-6 pt-5 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button type="button" onClick={() => onOpenInventory('valuable')} className="text-left bg-slate-900/80 hover:bg-slate-900 p-3.5 rounded-2xl border border-slate-800">
             <Package className="w-4 h-4 text-amber-400" />
-            <p className="text-xl font-bold text-white mt-2">{valuable.length} at desk</p>
-            <p className="text-[11px] text-slate-400">Valuable items →</p>
+            <p className="text-xl font-bold text-white mt-2">{valuable.length} valuable</p>
+            <p className="text-[11px] text-slate-400">Keep at the desk →</p>
           </button>
-          <button type="button" onClick={() => onOpenInventory('all')} className="text-left bg-slate-900/80 hover:bg-slate-900 p-3.5 rounded-2xl border border-slate-800">
+          <button type="button" onClick={() => onOpenInventory('everyday')} className="text-left bg-slate-900/80 hover:bg-slate-900 p-3.5 rounded-2xl border border-slate-800">
             <Package className="w-4 h-4 text-amber-400" />
-            <p className="text-xl font-bold text-white mt-2">{active.length} in inventory</p>
-            <p className="text-[11px] text-slate-400">Everything, with aging →</p>
+            <p className="text-xl font-bold text-white mt-2">{active.length - valuable.length} non-valuable</p>
+            <p className="text-[11px] text-slate-400">Green, yellow, and red →</p>
           </button>
           <button type="button" onClick={() => onNavigateTab('archive')} className="text-left bg-slate-900/80 hover:bg-slate-900 p-3.5 rounded-2xl border border-slate-800">
             <Archive className="w-4 h-4 text-emerald-400" />
