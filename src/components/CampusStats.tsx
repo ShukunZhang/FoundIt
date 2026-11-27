@@ -30,10 +30,10 @@ export const CampusStatsCard: React.FC<CampusStatsProps> = ({ stats }) => {
               {top ? categoryLabel(top.category) : 'Nothing reported'}
             </p>
           </div>
-          <p className="text-xs text-slate-500">{`${stats.lostLastWeek} ${stats.lostLastWeek === 1 ? 'report' : 'reports'}`}</p>
+          <p className="text-xs text-slate-500">{`${stats.lostLastWeek} ${stats.lostLastWeek === 1 ? 'item' : 'items'}`}</p>
         </div>
         {stats.categories.length === 0 ? (
-          <p className="mt-4 text-xs text-slate-500">No lost reports in the past 7 days.</p>
+          <p className="mt-4 text-xs text-slate-500">No items logged in the past 7 days.</p>
         ) : (
           <ul className="mt-4 space-y-2">
             {stats.categories.map((row) => (
