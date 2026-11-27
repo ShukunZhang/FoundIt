@@ -44,25 +44,28 @@ function ageLabel(item: FoundItem): string {
   return `${days} · ready to clear`;
 }
 
-function InventoryCard({ item }: { item: FoundItem }) {
+function InventoryCard({ item, narrow = false }: { item: FoundItem; narrow?: boolean }) {
   return (
-    <article className="bg-white rounded-xl border border-slate-200 p-3 flex gap-3">
-      <ItemPhoto item={item} className="h-14 w-14 rounded-lg shrink-0" />
+    <article className={`bg-white rounded-xl border border-slate-200 min-w-0 overflow-hidden ${narrow ? 'p-1.5 flex flex-col gap-1.5 sm:p-3 sm:flex-row sm:gap-3' : 'p-3 flex gap-3'}`}>
+      <ItemPhoto item={item} className={narrow ? 'h-16 w-full rounded-lg sm:h-14 sm:w-14 sm:shrink-0' : 'h-14 w-14 rounded-lg shrink-0'} />
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
-          <p className="font-mono text-sm font-bold text-slate-950">{item.itemCode}</p>
+          <p className={`font-mono font-bold text-slate-950 leading-tight ${narrow ? 'text-[11px] sm:text-sm truncate' : 'text-sm'}`}>{item.itemCode}</p>
           {isValuableItem(item) && (
             <span className="bg-slate-900 text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-0.5">
               <Lock className="w-2.5 h-2.5" /> Valuable
             </span>
           )}
         </div>
-        <h4 className="text-sm font-bold text-slate-900 mt-1">{item.title}</h4>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <h4 className={`font-bold text-slate-900 leading-tight ${narrow ? 'text-[11px] sm:text-sm mt-0.5 line-clamp-2' : 'text-sm mt-1'}`}>{item.title}</h4>
+        <p className={`text-slate-500 leading-tight ${narrow ? 'text-[10px] sm:text-xs mt-0.5 line-clamp-2' : 'text-xs mt-0.5'}`}>
           {item.colour} {item.category}
           {item.storageSpot ? ` · Kept in ${item.storageSpot}` : ''}
         </p>
-        <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
+        {narrow && item.locationFound && (
+          <p className="text-[10px] text-slate-600 leading-tight truncate sm:hidden">{item.locationFound}</p>
+        )}
+        <p className={narrow ? 'hidden sm:flex text-xs text-slate-600 gap-1 leading-tight mt-0.5 items-start' : 'text-xs text-slate-600 mt-1 flex gap-1 leading-tight items-center'}>
           <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           <span>
             {item.desk}
@@ -123,19 +126,19 @@ export const StaffInventory: React.FC<StaffInventoryProps> = ({ items, selectedD
           )}
         </section>
       ) : (
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-3 items-start">
           {AGE_COLUMNS.map((column) => {
             const columnItems = waiting.filter((item) => ageTier(item.daysAgo) === column.id);
             return (
-              <section key={column.id} className={`rounded-2xl border p-3 space-y-3 ${column.tone}`}>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-950">{column.title}</h3>
-                  <p className="text-[11px] text-slate-600">{column.detail} · {columnItems.length}</p>
+              <section key={column.id} className={`min-w-0 overflow-hidden rounded-2xl border p-1.5 sm:p-3 space-y-2 sm:space-y-3 ${column.tone}`}>
+                <div className="min-w-0">
+                  <h3 className="text-[11px] sm:text-sm font-bold text-slate-950 leading-tight">{column.title}</h3>
+                  <p className="text-[10px] sm:text-[11px] text-slate-600 leading-tight">{column.detail} · {columnItems.length}</p>
                 </div>
                 {columnItems.length === 0 ? (
-                  <p className="text-xs text-slate-600 bg-white/80 rounded-xl p-3">No items in this column.</p>
+                  <p className="text-[10px] sm:text-xs text-slate-600 bg-white/80 rounded-xl p-1.5 sm:p-3 leading-tight">No items in this column.</p>
                 ) : (
-                  columnItems.map((item) => <InventoryCard key={item.id} item={item} />)
+                  columnItems.map((item) => <InventoryCard key={item.id} item={item} narrow />)
                 )}
               </section>
             );
